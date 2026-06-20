@@ -528,7 +528,7 @@ Weekly digest should be sent Monday morning.
 
 ## Done when
 
-* [ ] Emails are delivered successfully
+* [x] Emails are delivered successfully
 
 ---
 

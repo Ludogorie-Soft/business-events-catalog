@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
+import { sendUnsubscribeEmail } from "@/lib/email/send-unsubscribe";
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@/generated/prisma/client";
 import type {
@@ -150,22 +151,41 @@ export async function updateSubscription(id: string, formData: FormData) {
 
 export async function deleteSubscription(id: string) {
   const userId = await requireUserId();
-  const existing = await prisma.subscription.findFirst({ where: { id, userId } });
+  const existing = await prisma.subscription.findFirst({
+    where: { id, userId },
+    include: { user: true },
+  });
   if (!existing) throw new Error("Subscription not found");
 
   await prisma.subscription.delete({ where: { id } });
+
+  void sendUnsubscribeEmail(existing.user, existing.name).catch((error) => {
+    console.error("[email] Failed to send unsubscribe email:", error);
+  });
+
   revalidatePath("/profile/subscriptions");
 }
 
 export async function toggleSubscriptionActive(id: string) {
   const userId = await requireUserId();
-  const existing = await prisma.subscription.findFirst({ where: { id, userId } });
+  const existing = await prisma.subscription.findFirst({
+    where: { id, userId },
+    include: { user: true },
+  });
   if (!existing) throw new Error("Subscription not found");
+
+  const nextActive = !existing.active;
 
   await prisma.subscription.update({
     where: { id },
-    data: { active: !existing.active },
+    data: { active: nextActive },
   });
+
+  if (!nextActive) {
+    void sendUnsubscribeEmail(existing.user, existing.name).catch((error) => {
+      console.error("[email] Failed to send unsubscribe email:", error);
+    });
+  }
 
   revalidatePath("/profile/subscriptions");
 }

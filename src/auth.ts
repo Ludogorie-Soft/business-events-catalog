@@ -3,6 +3,7 @@ import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { authConfig } from "@/auth.config";
+import { EmailNotVerifiedError } from "@/lib/auth-errors";
 import type { UserRole } from "@/generated/prisma/client";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -18,7 +19,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!credentials?.email || !credentials?.password) return null;
 
         const user = await prisma.user.findUnique({
-          where: { email: credentials.email as string },
+          where: { email: (credentials.email as string).trim().toLowerCase() },
         });
 
         if (!user || !user.passwordHash) return null;
@@ -28,6 +29,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           user.passwordHash
         );
         if (!valid) return null;
+
+        if (!user.emailVerifiedAt) {
+          throw new EmailNotVerifiedError();
+        }
 
         return {
           id: user.id,

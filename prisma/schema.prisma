@@ -57,18 +57,26 @@ enum CrawlStatus {
   FAILED
 }
 
+enum EmailNotificationStatus {
+  SENT
+  FAILED
+}
+
 // ---------------------------------------------------------------------------
 // Users
 // ---------------------------------------------------------------------------
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
+  id           String    @id @default(cuid())
+  email        String    @unique
   passwordHash String?
   name         String?
-  role         UserRole @default(USER)
+  role         UserRole  @default(USER)
   cityId       String?
-  createdAt    DateTime @default(now())
+  createdAt    DateTime  @default(now())
+  emailVerifiedAt              DateTime?
+  emailVerificationToken       String?   @unique
+  emailVerificationExpiresAt   DateTime?
 
   city          City?               @relation(fields: [cityId], references: [id])
   attendance    EventAttendance[]
@@ -312,10 +320,11 @@ model Subscription {
   maxPrice     Decimal?              @db.Decimal(10, 2)
 
   user       User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  cities     SubscriptionCity[]
-  eventTypes SubscriptionEventType[]
-  topics     SubscriptionTopic[]
-  tags       SubscriptionTag[]
+  cities        SubscriptionCity[]
+  eventTypes    SubscriptionEventType[]
+  topics        SubscriptionTopic[]
+  tags          SubscriptionTag[]
+  notifications EmailNotification[]
 }
 
 model SubscriptionCity {
@@ -363,13 +372,17 @@ model SubscriptionTag {
 // ---------------------------------------------------------------------------
 
 model EmailNotification {
-  id        String   @id @default(cuid())
-  userId    String
-  subject   String
-  sentAt    DateTime @default(now())
+  id             String                   @id @default(cuid())
+  userId         String
+  subscriptionId String?
+  subject        String
+  sentAt         DateTime                 @default(now())
+  status         EmailNotificationStatus  @default(SENT)
+  errorMessage   String?
 
-  user   User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  events EmailNotificationEvent[]
+  user         User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscription Subscription?            @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  events       EmailNotificationEvent[]
 }
 
 model EmailNotificationEvent {

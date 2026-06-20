@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
+import { issueEmailVerification } from "@/lib/email-verification-service";
 
 export async function POST(req: NextRequest) {
-  const { name, email, password } = await req.json();
+  const { name, email: rawEmail, password } = await req.json();
+  const email = typeof rawEmail === "string" ? rawEmail.trim().toLowerCase() : "";
 
   if (!email || !password) {
     return NextResponse.json(
@@ -29,9 +31,22 @@ export async function POST(req: NextRequest) {
 
   const passwordHash = await bcrypt.hash(password, 12);
 
-  await prisma.user.create({
+  const user = await prisma.user.create({
     data: { name, email, passwordHash },
   });
+
+  try {
+    const { result } = await issueEmailVerification(user.id);
+    if (!result.ok) {
+      if ("skipped" in result && result.skipped) {
+        console.warn("[email] Confirmation email skipped:", result.reason);
+      } else if ("error" in result) {
+        console.error("[email] Brevo rejected confirmation email:", result.error);
+      }
+    }
+  } catch (error) {
+    console.error("[email] Failed to send confirmation email:", error);
+  }
 
   return NextResponse.json({ success: true }, { status: 201 });
 }
