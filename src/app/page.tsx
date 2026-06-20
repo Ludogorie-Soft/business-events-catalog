@@ -10,12 +10,12 @@ export default function Home() {
         Открийте конференции, уъркшопи, нетуъркинг срещи и още бизнес събития
         в цялата страна.
       </p>
-      <div className="mt-10 flex gap-4">
+      <div className="mt-10 flex flex-wrap justify-center gap-4">
         <Link
           href="/events"
           className="rounded-md bg-blue-600 px-6 py-3 text-sm font-semibold text-white shadow hover:bg-blue-500 transition-colors"
         >
-          Разгледай събития
+          Разгледай всички събития
         </Link>
         <Link
           href="/auth/register"
@@ -23,6 +23,30 @@ export default function Home() {
         >
           Регистрация
         </Link>
+      </div>
+
+      {/* City links */}
+      <div className="mt-14 text-center">
+        <p className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-400">
+          Събития по градове
+        </p>
+        <div className="flex flex-wrap justify-center gap-3">
+          {[
+            { href: "/city/sofia", label: "София" },
+            { href: "/city/vratsa", label: "Враца" },
+            { href: "/city/montana", label: "Монтана" },
+            { href: "/city/pleven", label: "Плевен" },
+            { href: "/online", label: "🖥️ Онлайн" },
+          ].map(({ href, label }) => (
+            <Link
+              key={href}
+              href={href}
+              className="rounded-full border border-gray-200 px-4 py-1.5 text-sm text-gray-600 hover:border-blue-400 hover:text-blue-600 transition-colors"
+            >
+              {label}
+            </Link>
+          ))}
+        </div>
       </div>
     </main>
   );

@@ -16,6 +16,9 @@ export default async function Navbar() {
           <Link href="/events" className="text-gray-600 hover:text-gray-900">
             Събития
           </Link>
+          <Link href="/online" className="text-gray-600 hover:text-gray-900">
+            Онлайн
+          </Link>
 
           {user?.role === "ADMIN" && (
             <Link href="/admin" className="text-gray-600 hover:text-gray-900">
