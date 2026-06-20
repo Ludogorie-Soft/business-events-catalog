@@ -1,5 +1,6 @@
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
+import bcrypt from "bcryptjs";
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
 
@@ -81,6 +82,20 @@ async function main() {
     prisma.tag.upsert({ where: { slug: "rural-business" }, update: {}, create: { slug: "rural-business", nameBg: "бизнес в селото", nameEn: "rural business" } }),
   ]);
   console.log(`Seeded ${tags.length} tags`);
+
+  // Admin user (for development only)
+  const adminHash = await bcrypt.hash("admin1234", 12);
+  await prisma.user.upsert({
+    where: { email: "admin@example.com" },
+    update: {},
+    create: {
+      email: "admin@example.com",
+      name: "Admin",
+      passwordHash: adminHash,
+      role: "ADMIN",
+    },
+  });
+  console.log("Seeded admin user (admin@example.com / admin1234)");
 
   console.log("Seed complete.");
 }
