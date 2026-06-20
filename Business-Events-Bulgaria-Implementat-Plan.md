@@ -484,7 +484,7 @@ User can mark:
 
 ## Done when
 
-* [ ] Attendance works
+* [x] Attendance works
 
 ---
 

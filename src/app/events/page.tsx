@@ -2,8 +2,10 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import EventCard from "@/components/EventCard";
 import EventFilters from "@/components/EventFilters";
-import { getEvents, getFilterOptions } from "@/lib/events";
-import type { LocationType, PriceType, Language } from "@/generated/prisma/client";
+import { auth } from "@/auth";
+import { prisma } from "@/lib/prisma";
+import { getEvents, getFilterOptions, sortEventsByUserAttendance } from "@/lib/events";
+import type { AttendanceStatus, LocationType, PriceType, Language } from "@/generated/prisma/client";
 
 export const metadata: Metadata = {
   title: "Всички събития",
@@ -28,19 +30,35 @@ export default async function EventsPage({
   searchParams: SearchParams;
 }) {
   const sp = await searchParams;
-  const { cities, eventTypes, topics, tags } = await getFilterOptions();
+  const [session, { cities, eventTypes, topics, tags }, events] = await Promise.all([
+    auth(),
+    getFilterOptions(),
+    getEvents({
+      citySlug: sp.city,
+      eventTypeSlug: sp.type,
+      topicSlug: sp.topic,
+      tagSlug: sp.tag,
+      priceType: sp.price as PriceType | undefined,
+      locationType: sp.location as LocationType | undefined,
+      language: sp.language as Language | undefined,
+      dateFrom: sp.from,
+      dateTo: sp.to,
+    }),
+  ]);
 
-  const events = await getEvents({
-    citySlug: sp.city,
-    eventTypeSlug: sp.type,
-    topicSlug: sp.topic,
-    tagSlug: sp.tag,
-    priceType: sp.price as PriceType | undefined,
-    locationType: sp.location as LocationType | undefined,
-    language: sp.language as Language | undefined,
-    dateFrom: sp.from,
-    dateTo: sp.to,
-  });
+  const userId = session?.user?.id;
+  const attendanceRecords = userId
+    ? await prisma.eventAttendance.findMany({
+        where: { userId, status: { in: ["ATTENDING", "INTERESTED"] } },
+        select: { eventId: true, status: true },
+      })
+    : [];
+
+  const attendanceByEventId = new Map<string, AttendanceStatus>(
+    attendanceRecords.map(({ eventId, status }) => [eventId, status])
+  );
+
+  const sortedEvents = sortEventsByUserAttendance(events, attendanceByEventId);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
@@ -61,7 +79,7 @@ export default async function EventsPage({
 
         {/* Events grid */}
         <div className="flex-1">
-          {events.length === 0 ? (
+          {sortedEvents.length === 0 ? (
             <div className="rounded-xl border border-dashed border-gray-300 p-16 text-center text-gray-500">
               <p className="text-lg font-medium">Няма намерени събития</p>
               <p className="mt-1 text-sm">Опитайте с различни филтри.</p>
@@ -69,11 +87,16 @@ export default async function EventsPage({
           ) : (
             <>
               <p className="mb-4 text-sm text-gray-500">
-                {events.length} {events.length === 1 ? "събитие" : "събития"}
+                {sortedEvents.length}{" "}
+                {sortedEvents.length === 1 ? "събитие" : "събития"}
               </p>
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                {events.map((event) => (
-                  <EventCard key={event.id} event={event} />
+                {sortedEvents.map((event) => (
+                  <EventCard
+                    key={event.id}
+                    event={event}
+                    attendanceStatus={attendanceByEventId.get(event.id) ?? null}
+                  />
                 ))}
               </div>
             </>

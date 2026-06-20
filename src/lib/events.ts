@@ -1,5 +1,28 @@
 import { prisma } from "@/lib/prisma";
-import type { EventStatus, LocationType, PriceType, Language } from "@/generated/prisma/client";
+import type {
+  AttendanceStatus,
+  EventStatus,
+  LocationType,
+  PriceType,
+  Language,
+} from "@/generated/prisma/client";
+
+const ATTENDANCE_SORT_ORDER: Partial<Record<AttendanceStatus, number>> = {
+  ATTENDING: 0,
+  INTERESTED: 1,
+};
+
+export function sortEventsByUserAttendance<T extends { id: string; startAt: Date }>(
+  events: T[],
+  attendanceByEventId: Map<string, AttendanceStatus>
+): T[] {
+  return [...events].sort((a, b) => {
+    const aOrder = ATTENDANCE_SORT_ORDER[attendanceByEventId.get(a.id)!] ?? 2;
+    const bOrder = ATTENDANCE_SORT_ORDER[attendanceByEventId.get(b.id)!] ?? 2;
+    if (aOrder !== bOrder) return aOrder - bOrder;
+    return new Date(a.startAt).getTime() - new Date(b.startAt).getTime();
+  });
+}
 
 export type EventFilters = {
   citySlug?: string;

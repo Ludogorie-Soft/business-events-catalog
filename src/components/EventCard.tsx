@@ -1,5 +1,13 @@
 import Link from "next/link";
-import type { Event, City, EventType, Venue, EventTag, Tag } from "@/generated/prisma/client";
+import type {
+  AttendanceStatus,
+  Event,
+  City,
+  EventType,
+  Venue,
+  EventTag,
+  Tag,
+} from "@/generated/prisma/client";
 
 type Props = {
   event: Event & {
@@ -8,6 +16,25 @@ type Props = {
     venue: Venue | null;
     tags: (EventTag & { tag: Tag })[];
   };
+  attendanceStatus?: AttendanceStatus | null;
+};
+
+const attendanceStyles: Partial<
+  Record<
+    AttendanceStatus,
+    { article: string; label: string; text: string }
+  >
+> = {
+  ATTENDING: {
+    article: "border-green-300 bg-green-50/60 ring-1 ring-green-200",
+    label: "bg-green-600 text-white",
+    text: "Ще присъствам",
+  },
+  INTERESTED: {
+    article: "border-blue-300 bg-blue-50/60 ring-1 ring-blue-200",
+    label: "bg-blue-600 text-white",
+    text: "Интересувам се",
+  },
 };
 
 const locationLabels: Record<string, string> = {
@@ -22,7 +49,9 @@ const priceLabels: Record<string, string> = {
   UNKNOWN: "",
 };
 
-export default function EventCard({ event }: Props) {
+export default function EventCard({ event, attendanceStatus }: Props) {
+  const attendance = attendanceStatus ? attendanceStyles[attendanceStatus] : null;
+
   const dateStr = new Date(event.startAt).toLocaleDateString("bg-BG", {
     day: "numeric",
     month: "long",
@@ -36,7 +65,19 @@ export default function EventCard({ event }: Props) {
 
   return (
     <Link href={`/events/${event.slug}`} className="group block">
-      <article className="flex flex-col rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md h-full">
+      <article
+        className={`flex flex-col rounded-xl border p-5 shadow-sm transition-shadow hover:shadow-md h-full ${
+          attendance?.article ?? "border-gray-200 bg-white"
+        }`}
+      >
+        {attendance && (
+          <span
+            className={`mb-3 inline-flex w-fit items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${attendance.label}`}
+          >
+            {attendanceStatus === "ATTENDING" ? "✅" : "⭐"} {attendance.text}
+          </span>
+        )}
+
         {event.coverImageUrl && (
           <img
             src={event.coverImageUrl}

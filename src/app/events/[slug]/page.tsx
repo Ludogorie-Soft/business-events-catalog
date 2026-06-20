@@ -2,6 +2,9 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getEventBySlug } from "@/lib/events";
+import { auth } from "@/auth";
+import { prisma } from "@/lib/prisma";
+import AttendanceButtons from "@/components/AttendanceButtons";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -35,9 +38,16 @@ const languageLabels: Record<string, string> = {
 
 export default async function EventDetailPage({ params }: Props) {
   const { slug } = await params;
-  const event = await getEventBySlug(slug);
+  const [event, session] = await Promise.all([getEventBySlug(slug), auth()]);
 
   if (!event || event.status !== "PUBLISHED") notFound();
+
+  const userId = session?.user?.id ?? null;
+  const attendance = userId
+    ? await prisma.eventAttendance.findUnique({
+        where: { userId_eventId: { userId, eventId: event.id } },
+      })
+    : null;
 
   const startDate = new Date(event.startAt).toLocaleDateString("bg-BG", {
     weekday: "long",
@@ -183,6 +193,16 @@ export default async function EventDetailPage({ params }: Props) {
       ) : event.shortDescription ? (
         <p className="text-gray-700 leading-relaxed">{event.shortDescription}</p>
       ) : null}
+
+      {/* Attendance */}
+      <div className="mb-8">
+        <AttendanceButtons
+          eventId={event.id}
+          eventSlug={event.slug}
+          userId={userId}
+          initialStatus={attendance?.status ?? null}
+        />
+      </div>
 
       {/* CTA */}
       <div className="mt-10 flex flex-wrap gap-3">
