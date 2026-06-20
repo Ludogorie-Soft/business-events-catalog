@@ -12,13 +12,14 @@ export const metadata: Metadata = { title: "Редактирай събитие"
 
 export default async function EditEventPage({ params }: Props) {
   const { id } = await params;
-  const [event, { cities, eventTypes }] = await Promise.all([
-    prisma.event.findUnique({ where: { id } }),
+  const [event, { cities, eventTypes, tags }] = await Promise.all([
+    prisma.event.findUnique({ where: { id }, include: { tags: true } }),
     getFilterOptions(),
   ]);
 
   if (!event) notFound();
 
+  const selectedTagIds = event.tags.map((et) => et.tagId);
   const updateWithId = updateEvent.bind(null, id);
 
   return (
@@ -76,8 +77,10 @@ export default async function EditEventPage({ params }: Props) {
       <EventForm
         cities={cities}
         eventTypes={eventTypes}
+        tags={tags}
         action={updateWithId}
         defaultValues={event}
+        selectedTagIds={selectedTagIds}
         submitLabel="Запази промените"
         showPublishToggle={false}
       />

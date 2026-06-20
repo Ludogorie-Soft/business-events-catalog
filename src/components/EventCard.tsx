@@ -1,11 +1,12 @@
 import Link from "next/link";
-import type { Event, City, EventType, Venue } from "@/generated/prisma/client";
+import type { Event, City, EventType, Venue, EventTag, Tag } from "@/generated/prisma/client";
 
 type Props = {
   event: Event & {
     city: City;
     eventType: EventType;
     venue: Venue | null;
+    tags: (EventTag & { tag: Tag })[];
   };
 };
 
@@ -63,6 +64,19 @@ export default function EventCard({ event }: Props) {
             </span>
           )}
         </div>
+
+        {event.tags.length > 0 && (
+          <div className="flex flex-wrap gap-1 mb-2">
+            {event.tags.slice(0, 3).map(({ tag }) => (
+              <span
+                key={tag.id}
+                className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500"
+              >
+                #{tag.nameEn}
+              </span>
+            ))}
+          </div>
+        )}
 
         <h2 className="mb-2 text-base font-semibold text-gray-900 group-hover:text-blue-600 line-clamp-2">
           {event.title}

@@ -462,7 +462,7 @@ Support multiple tags.
 
 ## Done when
 
-* [ ] Event tags work
+* [x] Event tags work
 
 ---
 

@@ -1,14 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import type { City, EventType, Event } from "@/generated/prisma/client";
+import type { City, EventType, Event, Tag } from "@/generated/prisma/client";
 import RichTextEditor from "./RichTextEditor";
 
 type Props = {
   cities: City[];
   eventTypes: EventType[];
+  tags: Tag[];
   action: (formData: FormData) => Promise<void>;
   defaultValues?: Partial<Event>;
+  selectedTagIds?: string[];
   submitLabel?: string;
   showPublishToggle?: boolean;
 };
@@ -38,8 +40,10 @@ function toDatetimeLocal(date?: Date | null): string {
 export default function EventForm({
   cities,
   eventTypes,
+  tags,
   action,
   defaultValues,
+  selectedTagIds = [],
   submitLabel = "Запази",
   showPublishToggle = true,
 }: Props) {
@@ -263,6 +267,32 @@ export default function EventForm({
           className={inputCls}
         />
       </Field>
+
+      {tags.length > 0 && (
+        <Field label="Тагове">
+          <div className="flex flex-wrap gap-2 rounded-lg border border-gray-300 p-3">
+            {tags.map((tag) => {
+              const checked = selectedTagIds.includes(tag.id);
+              return (
+                <label
+                  key={tag.id}
+                  className="flex cursor-pointer items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-medium text-gray-700 hover:border-blue-300 hover:bg-blue-50 has-[:checked]:border-blue-400 has-[:checked]:bg-blue-50 has-[:checked]:text-blue-700"
+                >
+                  <input
+                    type="checkbox"
+                    name="tagIds"
+                    value={tag.id}
+                    defaultChecked={checked}
+                    className="h-3 w-3 accent-blue-600"
+                  />
+                  {tag.nameBg}
+                  <span className="text-gray-400">#{tag.nameEn}</span>
+                </label>
+              );
+            })}
+          </div>
+        </Field>
+      )}
 
       <div className="flex items-center gap-3 border-t border-gray-100 pt-5">
         {showPublishToggle ? (

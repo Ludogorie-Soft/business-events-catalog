@@ -60,10 +60,11 @@ export async function createEvent(formData: FormData) {
   const priceMin = formData.get("priceMin") ? Number(formData.get("priceMin")) : null;
   const priceMax = formData.get("priceMax") ? Number(formData.get("priceMax")) : null;
   const publish = formData.get("publish") === "true";
+  const tagIds = formData.getAll("tagIds") as string[];
 
   const slug = await generateUniqueSlug(title);
 
-  await prisma.event.create({
+  const event = await prisma.event.create({
     data: {
       title,
       slug,
@@ -88,6 +89,12 @@ export async function createEvent(formData: FormData) {
       createdById: session.user.id,
     },
   });
+
+  if (tagIds.length > 0) {
+    await prisma.eventTag.createMany({
+      data: tagIds.map((tagId) => ({ eventId: event.id, tagId })),
+    });
+  }
 
   revalidatePath("/admin/events");
   revalidatePath("/events");
@@ -118,6 +125,7 @@ export async function updateEvent(id: string, formData: FormData) {
   const capacity = formData.get("capacity") ? Number(formData.get("capacity")) : null;
   const priceMin = formData.get("priceMin") ? Number(formData.get("priceMin")) : null;
   const priceMax = formData.get("priceMax") ? Number(formData.get("priceMax")) : null;
+  const tagIds = formData.getAll("tagIds") as string[];
 
   const existing = await prisma.event.findUnique({ where: { id } });
   if (!existing) throw new Error("Event not found");
@@ -127,29 +135,38 @@ export async function updateEvent(id: string, formData: FormData) {
       ? await generateUniqueSlug(title, id)
       : existing.slug;
 
-  await prisma.event.update({
-    where: { id },
-    data: {
-      title,
-      slug,
-      shortDescription: shortDescription || null,
-      descriptionText: descriptionText || null,
-      descriptionHtml: descriptionHtml || null,
-      cityId,
-      eventTypeId,
-      locationType: locationType as "PHYSICAL" | "ONLINE" | "HYBRID",
-      priceType: priceType as "FREE" | "PAID" | "UNKNOWN",
-      language: language as "BG" | "EN" | "MIXED" | null,
-      startAt: new Date(startAt),
-      endAt: endAt ? new Date(endAt) : null,
-      registrationUrl,
-      onlineUrl,
-      externalUrl: externalUrl || null,
-      coverImageUrl,
-      capacity,
-      priceMin,
-      priceMax,
-    },
+  await prisma.$transaction(async (tx) => {
+    await tx.event.update({
+      where: { id },
+      data: {
+        title,
+        slug,
+        shortDescription: shortDescription || null,
+        descriptionText: descriptionText || null,
+        descriptionHtml: descriptionHtml || null,
+        cityId,
+        eventTypeId,
+        locationType: locationType as "PHYSICAL" | "ONLINE" | "HYBRID",
+        priceType: priceType as "FREE" | "PAID" | "UNKNOWN",
+        language: language as "BG" | "EN" | "MIXED" | null,
+        startAt: new Date(startAt),
+        endAt: endAt ? new Date(endAt) : null,
+        registrationUrl,
+        onlineUrl,
+        externalUrl: externalUrl || null,
+        coverImageUrl,
+        capacity,
+        priceMin,
+        priceMax,
+      },
+    });
+
+    await tx.eventTag.deleteMany({ where: { eventId: id } });
+    if (tagIds.length > 0) {
+      await tx.eventTag.createMany({
+        data: tagIds.map((tagId) => ({ eventId: id, tagId })),
+      });
+    }
   });
 
   revalidatePath("/admin/events");
