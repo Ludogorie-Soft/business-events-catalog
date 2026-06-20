@@ -140,7 +140,7 @@ export default async function EventDetailPage({ params }: Props) {
             {event.priceMax && Number(event.priceMax) !== Number(event.priceMin)
               ? `– ${Number(event.priceMax).toFixed(0)} `
               : ""}
-            {event.currency ?? "BGN"}
+            {event.currency ?? "EUR"}
           </div>
         )}
         {event.capacity && (
