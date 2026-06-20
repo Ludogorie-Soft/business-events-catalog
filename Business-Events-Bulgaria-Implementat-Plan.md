@@ -508,7 +508,7 @@ Frequency:
 
 ## Done when
 
-* [ ] Multiple subscriptions per user work
+* [x] Multiple subscriptions per user work
 
 ---
 

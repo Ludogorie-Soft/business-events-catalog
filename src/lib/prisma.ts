@@ -1,7 +1,13 @@
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@/generated/prisma/client";
 
-const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
+const globalForPrisma = globalThis as unknown as {
+  prisma: PrismaClient | undefined;
+  prismaSchemaVersion: string | undefined;
+};
+
+// Bump when schema changes so dev server picks up regenerated client without a full restart.
+const PRISMA_SCHEMA_VERSION = "20260620165508_add_subscription_filters";
 
 function createPrismaClient() {
   const adapter = new PrismaPg({
@@ -10,8 +16,22 @@ function createPrismaClient() {
   return new PrismaClient({ adapter });
 }
 
-export const prisma = globalForPrisma.prisma ?? createPrismaClient();
+function getPrismaClient() {
+  if (
+    process.env.NODE_ENV !== "production" &&
+    globalForPrisma.prisma &&
+    globalForPrisma.prismaSchemaVersion !== PRISMA_SCHEMA_VERSION
+  ) {
+    void globalForPrisma.prisma.$disconnect();
+    globalForPrisma.prisma = undefined;
+  }
 
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
+  if (!globalForPrisma.prisma) {
+    globalForPrisma.prisma = createPrismaClient();
+    globalForPrisma.prismaSchemaVersion = PRISMA_SCHEMA_VERSION;
+  }
+
+  return globalForPrisma.prisma;
 }
+
+export const prisma = getPrismaClient();

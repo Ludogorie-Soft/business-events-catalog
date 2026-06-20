@@ -28,6 +28,12 @@ export default async function Navbar() {
 
           {user ? (
             <>
+              <Link href="/profile/events" className="text-gray-600 hover:text-gray-900">
+                Моите събития
+              </Link>
+              <Link href="/profile/subscriptions" className="text-gray-600 hover:text-gray-900">
+                Абонаменти
+              </Link>
               <Link href="/profile" className="text-gray-600 hover:text-gray-900">
                 {user.name ?? user.email}
               </Link>

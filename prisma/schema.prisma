@@ -300,12 +300,16 @@ model EventAttendance {
 // ---------------------------------------------------------------------------
 
 model Subscription {
-  id        String                @id @default(cuid())
-  userId    String
-  name      String
-  frequency SubscriptionFrequency
-  active    Boolean               @default(true)
-  createdAt DateTime              @default(now())
+  id           String                @id @default(cuid())
+  userId       String
+  name         String
+  frequency    SubscriptionFrequency
+  active       Boolean               @default(true)
+  createdAt    DateTime              @default(now())
+  priceType    PriceType?
+  locationType LocationType?
+  language     Language?
+  maxPrice     Decimal?              @db.Decimal(10, 2)
 
   user       User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
   cities     SubscriptionCity[]
