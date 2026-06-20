@@ -1,8 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
@@ -10,5 +5,375 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum EventStatus {
+  DRAFT
+  PUBLISHED
+  CANCELLED
+}
+
+enum LocationType {
+  PHYSICAL
+  ONLINE
+  HYBRID
+}
+
+enum PriceType {
+  FREE
+  PAID
+  UNKNOWN
+}
+
+enum Language {
+  BG
+  EN
+  MIXED
+}
+
+enum AttendanceStatus {
+  INTERESTED
+  ATTENDING
+  CANCELLED
+}
+
+enum SubscriptionFrequency {
+  DAILY
+  WEEKLY
+}
+
+enum CrawlStatus {
+  RUNNING
+  SUCCESS
+  FAILED
+}
+
+// ---------------------------------------------------------------------------
+// Users
+// ---------------------------------------------------------------------------
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String?
+  name         String?
+  role         UserRole @default(USER)
+  cityId       String?
+  createdAt    DateTime @default(now())
+
+  city          City?               @relation(fields: [cityId], references: [id])
+  attendance    EventAttendance[]
+  subscriptions Subscription[]
+  createdEvents Event[]             @relation("CreatedBy")
+  notifications EmailNotification[]
+}
+
+// ---------------------------------------------------------------------------
+// Cities
+// ---------------------------------------------------------------------------
+
+model City {
+  id     String @id @default(cuid())
+  slug   String @unique
+  nameBg String
+  nameEn String
+  region String
+
+  users         User[]
+  venues        Venue[]
+  events        Event[]
+  subscriptions SubscriptionCity[]
+}
+
+// ---------------------------------------------------------------------------
+// Event Types
+// ---------------------------------------------------------------------------
+
+model EventType {
+  id     String @id @default(cuid())
+  slug   String @unique
+  nameBg String
+  nameEn String
+
+  events        Event[]
+  subscriptions SubscriptionEventType[]
+}
+
+// ---------------------------------------------------------------------------
+// Topics
+// ---------------------------------------------------------------------------
+
+model Topic {
+  id     String @id @default(cuid())
+  slug   String @unique
+  nameBg String
+  nameEn String
+
+  events        EventTopic[]
+  subscriptions SubscriptionTopic[]
+}
+
+// ---------------------------------------------------------------------------
+// Tags
+// ---------------------------------------------------------------------------
+
+model Tag {
+  id     String @id @default(cuid())
+  slug   String @unique
+  nameBg String
+  nameEn String
+
+  events        EventTag[]
+  subscriptions SubscriptionTag[]
+}
+
+// ---------------------------------------------------------------------------
+// Organizers
+// ---------------------------------------------------------------------------
+
+model Organizer {
+  id          String  @id @default(cuid())
+  name        String
+  websiteUrl  String?
+  linkedinUrl String?
+  facebookUrl String?
+  logoUrl     String?
+
+  events Event[]
+}
+
+// ---------------------------------------------------------------------------
+// Venues
+// ---------------------------------------------------------------------------
+
+model Venue {
+  id        String  @id @default(cuid())
+  cityId    String
+  name      String
+  address   String?
+  latitude  Float?
+  longitude Float?
+
+  city   City    @relation(fields: [cityId], references: [id])
+  events Event[]
+}
+
+// ---------------------------------------------------------------------------
+// Events
+// ---------------------------------------------------------------------------
+
+model Event {
+  id              String       @id @default(cuid())
+  title           String
+  slug            String       @unique
+  startAt         DateTime
+  endAt           DateTime?
+  timezone        String       @default("Europe/Sofia")
+  cityId          String
+  locationType    LocationType
+  eventTypeId     String
+  priceType       PriceType    @default(UNKNOWN)
+  status          EventStatus  @default(DRAFT)
+  createdById     String
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  // Optional
+  shortDescription String?
+  descriptionHtml  String?
+  descriptionText  String?
+  venueId          String?
+  organizerId      String?
+  onlineUrl        String?
+  registrationUrl  String?
+  externalUrl      String?     @unique
+  sourceId         String?
+  language         Language?
+  priceMin         Decimal?    @db.Decimal(10, 2)
+  priceMax         Decimal?    @db.Decimal(10, 2)
+  currency         String?     @default("BGN")
+  coverImageUrl    String?
+  capacity         Int?
+  featured         Boolean     @default(false)
+
+  city        City            @relation(fields: [cityId], references: [id])
+  eventType   EventType       @relation(fields: [eventTypeId], references: [id])
+  venue       Venue?          @relation(fields: [venueId], references: [id])
+  organizer   Organizer?      @relation(fields: [organizerId], references: [id])
+  source      Source?         @relation(fields: [sourceId], references: [id])
+  createdBy   User            @relation("CreatedBy", fields: [createdById], references: [id])
+  topics      EventTopic[]
+  tags        EventTag[]
+  attendance  EventAttendance[]
+  notifications EmailNotificationEvent[]
+}
+
+// ---------------------------------------------------------------------------
+// Many-to-many pivot tables
+// ---------------------------------------------------------------------------
+
+model EventTopic {
+  eventId String
+  topicId String
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  topic Topic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+
+  @@id([eventId, topicId])
+}
+
+model EventTag {
+  eventId String
+  tagId   String
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  tag   Tag   @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([eventId, tagId])
+}
+
+// ---------------------------------------------------------------------------
+// Sources (crawling)
+// ---------------------------------------------------------------------------
+
+model Source {
+  id                   String    @id @default(cuid())
+  name                 String
+  sourceKey            String    @unique
+  websiteUrl           String?
+  active               Boolean   @default(true)
+  lastCheckedAt        DateTime?
+  lastSuccessAt        DateTime?
+  lastEventsFoundCount Int?
+  lastError            String?
+
+  events    Event[]
+  crawlRuns CrawlRun[]
+}
+
+// ---------------------------------------------------------------------------
+// Crawl Runs
+// ---------------------------------------------------------------------------
+
+model CrawlRun {
+  id            String      @id @default(cuid())
+  sourceId      String
+  status        CrawlStatus
+  startedAt     DateTime    @default(now())
+  finishedAt    DateTime?
+  eventsFound   Int         @default(0)
+  eventsCreated Int         @default(0)
+  eventsUpdated Int         @default(0)
+  errorMessage  String?
+
+  source Source @relation(fields: [sourceId], references: [id])
+}
+
+// ---------------------------------------------------------------------------
+// Event Attendance
+// ---------------------------------------------------------------------------
+
+model EventAttendance {
+  userId    String
+  eventId   String
+  status    AttendanceStatus
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@id([userId, eventId])
+}
+
+// ---------------------------------------------------------------------------
+// Subscriptions
+// ---------------------------------------------------------------------------
+
+model Subscription {
+  id        String                @id @default(cuid())
+  userId    String
+  name      String
+  frequency SubscriptionFrequency
+  active    Boolean               @default(true)
+  createdAt DateTime              @default(now())
+
+  user       User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cities     SubscriptionCity[]
+  eventTypes SubscriptionEventType[]
+  topics     SubscriptionTopic[]
+  tags       SubscriptionTag[]
+}
+
+model SubscriptionCity {
+  subscriptionId String
+  cityId         String
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  city         City         @relation(fields: [cityId], references: [id], onDelete: Cascade)
+
+  @@id([subscriptionId, cityId])
+}
+
+model SubscriptionEventType {
+  subscriptionId String
+  eventTypeId    String
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  eventType    EventType    @relation(fields: [eventTypeId], references: [id], onDelete: Cascade)
+
+  @@id([subscriptionId, eventTypeId])
+}
+
+model SubscriptionTopic {
+  subscriptionId String
+  topicId        String
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  topic        Topic        @relation(fields: [topicId], references: [id], onDelete: Cascade)
+
+  @@id([subscriptionId, topicId])
+}
+
+model SubscriptionTag {
+  subscriptionId String
+  tagId          String
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  tag          Tag          @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([subscriptionId, tagId])
+}
+
+// ---------------------------------------------------------------------------
+// Email Notifications
+// ---------------------------------------------------------------------------
+
+model EmailNotification {
+  id        String   @id @default(cuid())
+  userId    String
+  subject   String
+  sentAt    DateTime @default(now())
+
+  user   User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  events EmailNotificationEvent[]
+}
+
+model EmailNotificationEvent {
+  notificationId String
+  eventId        String
+
+  notification EmailNotification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  event        Event             @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@id([notificationId, eventId])
 }
