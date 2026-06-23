@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { City, EventType, Event, Tag } from "@/generated/prisma/client";
+import type { City, EventType, Event, Tag, PriceType } from "@/generated/prisma/client";
 import RichTextEditor from "./RichTextEditor";
 
 type Props = {
@@ -53,7 +53,9 @@ export default function EventForm({
     defaultValues?.locationType ?? "PHYSICAL"
   );
   const [cityId, setCityId] = useState(defaultValues?.cityId ?? "");
-  const [priceType, setPriceType] = useState(defaultValues?.priceType ?? "UNKNOWN");
+  const [priceType, setPriceType] = useState<PriceType>(
+    defaultValues?.priceType ?? "UNKNOWN"
+  );
 
   function handleLocationChange(value: string) {
     setLocationType(value as "PHYSICAL" | "ONLINE" | "HYBRID");
@@ -158,7 +160,7 @@ export default function EventForm({
             name="priceType"
             required
             value={priceType}
-            onChange={(e) => setPriceType(e.target.value)}
+            onChange={(e) => setPriceType(e.target.value as PriceType)}
             className={selectCls}
           >
             <option value="UNKNOWN">Неизвестна</option>
