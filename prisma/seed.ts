@@ -88,13 +88,13 @@ async function main() {
       where: { sourceKey: "eventbrite" },
       update: {
         name: "Eventbrite Online",
-        websiteUrl: "https://www.eventbrite.com/d/online/all-events/",
+        websiteUrl: "https://www.eventbrite.com/d/online/business--events/",
         active: true,
       },
       create: {
         name: "Eventbrite Online",
         sourceKey: "eventbrite",
-        websiteUrl: "https://www.eventbrite.com/d/online/all-events/",
+        websiteUrl: "https://www.eventbrite.com/d/online/business--events/",
         active: true,
       },
     }),
@@ -109,6 +109,62 @@ async function main() {
         name: "Startup Council",
         sourceKey: "startupcouncil",
         websiteUrl: "https://www.startupcouncil.org/events",
+        active: true,
+      },
+    }),
+    prisma.source.upsert({
+      where: { sourceKey: "devbg" },
+      update: {
+        name: "DEV.BG",
+        websiteUrl: "https://dev.bg/events",
+        active: true,
+      },
+      create: {
+        name: "DEV.BG",
+        sourceKey: "devbg",
+        websiteUrl: "https://dev.bg/events",
+        active: true,
+      },
+    }),
+    prisma.source.upsert({
+      where: { sourceKey: "iec" },
+      update: {
+        name: "Inter Expo Center",
+        websiteUrl: "https://iec.bg/calendar_all.php",
+        active: true,
+      },
+      create: {
+        name: "Inter Expo Center",
+        sourceKey: "iec",
+        websiteUrl: "https://iec.bg/calendar_all.php",
+        active: true,
+      },
+    }),
+    prisma.source.upsert({
+      where: { sourceKey: "eno" },
+      update: {
+        name: "Entrepreneurs Night Out",
+        websiteUrl: "https://entrepreneursnightout.org/events/",
+        active: true,
+      },
+      create: {
+        name: "Entrepreneurs Night Out",
+        sourceKey: "eno",
+        websiteUrl: "https://entrepreneursnightout.org/events/",
+        active: true,
+      },
+    }),
+    prisma.source.upsert({
+      where: { sourceKey: "sofiatech" },
+      update: {
+        name: "Sofia Tech Park",
+        websiteUrl: "https://sofiatech.bg/upcoming-events/",
+        active: true,
+      },
+      create: {
+        name: "Sofia Tech Park",
+        sourceKey: "sofiatech",
+        websiteUrl: "https://sofiatech.bg/upcoming-events/",
         active: true,
       },
     }),

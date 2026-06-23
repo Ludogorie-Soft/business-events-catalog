@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import ManualEventCrawlForm from "@/components/admin/ManualEventCrawlForm";
 import PullEventsButton from "@/components/admin/PullEventsButton";
 import SourceRowActions from "@/components/admin/SourceRowActions";
+import { manualCrawlSources } from "@/crawlers/manual-crawlers";
 import { prisma } from "@/lib/prisma";
 
 export const metadata: Metadata = { title: "Източници" };
@@ -37,6 +39,8 @@ export default async function AdminSourcesPage() {
         </div>
         <PullEventsButton variant="inline" />
       </div>
+
+      <ManualEventCrawlForm sources={manualCrawlSources} />
 
       {sources.length === 0 ? (
         <div className="rounded-xl border border-dashed border-gray-300 p-12 text-center text-gray-500">

@@ -1,5 +1,7 @@
 import { getCrawler } from "@/crawlers";
+import { isUpcomingEvent } from "@/crawlers/filter-events";
 import { importCrawledEvents } from "@/crawlers/import-events";
+import { getManualCrawler } from "@/crawlers/manual-crawlers";
 import type { CrawlAllResult, CrawlSourceResult } from "@/crawlers/types";
 import { prisma } from "@/lib/prisma";
 
@@ -106,6 +108,117 @@ async function crawlSource(source: {
 
     return {
       sourceKey: source.sourceKey,
+      status: "failed",
+      eventsFound: 0,
+      eventsCreated: 0,
+      eventsUpdated: 0,
+      errorMessage,
+    };
+  }
+}
+
+export async function runManualEventImport(
+  sourceKey: string,
+  url: string
+): Promise<CrawlSourceResult> {
+  const manualCrawler = getManualCrawler(sourceKey);
+  if (!manualCrawler) {
+    return {
+      sourceKey,
+      status: "failed",
+      eventsFound: 0,
+      eventsCreated: 0,
+      eventsUpdated: 0,
+      errorMessage: `No manual crawler registered for sourceKey: ${sourceKey}`,
+    };
+  }
+
+  const source = await prisma.source.findUnique({
+    where: { sourceKey },
+  });
+
+  if (!source) {
+    return {
+      sourceKey,
+      status: "failed",
+      eventsFound: 0,
+      eventsCreated: 0,
+      eventsUpdated: 0,
+      errorMessage: `Source not found for sourceKey: ${sourceKey}`,
+    };
+  }
+
+  const startedAt = new Date();
+  const crawlRun = await prisma.crawlRun.create({
+    data: {
+      sourceId: source.id,
+      status: "RUNNING",
+      startedAt,
+    },
+  });
+
+  try {
+    const event = await manualCrawler.crawlFromUrl(url);
+
+    if (!isUpcomingEvent(event)) {
+      throw new Error("Събитието вече е минало и не може да бъде импортирано.");
+    }
+
+    const importResult = await importCrawledEvents(source.id, [event]);
+    const finishedAt = new Date();
+
+    await prisma.$transaction([
+      prisma.crawlRun.update({
+        where: { id: crawlRun.id },
+        data: {
+          status: "SUCCESS",
+          finishedAt,
+          eventsFound: importResult.eventsFound,
+          eventsCreated: importResult.eventsCreated,
+          eventsUpdated: importResult.eventsUpdated,
+        },
+      }),
+      prisma.source.update({
+        where: { id: source.id },
+        data: {
+          lastCheckedAt: finishedAt,
+          lastSuccessAt: finishedAt,
+          lastEventsFoundCount: importResult.eventsFound,
+          lastError: null,
+        },
+      }),
+    ]);
+
+    return {
+      sourceKey,
+      status: "success",
+      ...importResult,
+    };
+  } catch (error) {
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown manual import error";
+    const finishedAt = new Date();
+
+    await prisma.$transaction([
+      prisma.crawlRun.update({
+        where: { id: crawlRun.id },
+        data: {
+          status: "FAILED",
+          finishedAt,
+          errorMessage,
+        },
+      }),
+      prisma.source.update({
+        where: { id: source.id },
+        data: {
+          lastCheckedAt: finishedAt,
+          lastError: errorMessage,
+        },
+      }),
+    ]);
+
+    return {
+      sourceKey,
       status: "failed",
       eventsFound: 0,
       eventsCreated: 0,

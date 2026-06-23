@@ -1,8 +1,13 @@
-import { decodeHtmlEntities, extractJsonLdBlocks, fetchHtml } from "@/crawlers/fetch-html";
+import {
+  decodeHtmlEntities,
+  extractJsonLdBlocks,
+  fetchHtml,
+  unescapeJsonString,
+} from "@/crawlers/fetch-html";
 import type { CrawledEvent } from "@/crawlers/types";
 
 const SOURCE_KEY = "eventbrite";
-const LISTING_URL = "https://www.eventbrite.com/d/online/all-events/";
+const LISTING_URL = "https://www.eventbrite.com/d/online/business--events/";
 
 type SchemaEvent = {
   "@type"?: string;
@@ -12,10 +17,16 @@ type SchemaEvent = {
   endDate?: string;
   url?: string;
   image?: string;
-  eventAttendanceMode?: string;
-  location?: { "@type"?: string; url?: string };
-  offers?: { price?: string | number; priceCurrency?: string } | Array<{ price?: string | number }>;
+  offers?: { price?: string | number } | Array<{ price?: string | number }>;
   organizer?: { name?: string } | Array<{ name?: string }>;
+};
+
+type EmbeddedEvent = {
+  name: string;
+  language: string;
+  url: string;
+  summary?: string;
+  eid?: string;
 };
 
 function normalizeEventUrl(url: string) {
@@ -28,6 +39,19 @@ function normalizeEventUrl(url: string) {
 function extractEventId(url: string) {
   const match = url.match(/-(\d+)(?:\?|$)/);
   return match?.[1];
+}
+
+function isEnglishLanguage(language: string) {
+  return language.toLowerCase().startsWith("en");
+}
+
+function isAllowedEventUrl(url: string) {
+  try {
+    const hostname = new URL(url).hostname.toLowerCase();
+    return hostname.includes("eventbrite.") && !hostname.includes("eventbrite.de");
+  } catch {
+    return false;
+  }
 }
 
 function parsePriceType(event: SchemaEvent): CrawledEvent["priceType"] {
@@ -66,47 +90,99 @@ function collectSchemaEvents(blocks: unknown[]): SchemaEvent[] {
         }
       }
     }
-
-    const graph = record["@graph"];
-    if (Array.isArray(graph)) {
-      for (const node of graph) {
-        if ((node as SchemaEvent)?.["@type"] === "Event") {
-          events.push(node as SchemaEvent);
-        }
-      }
-    }
   }
 
   return events;
 }
 
-function mapSchemaEvent(event: SchemaEvent): CrawledEvent | null {
-  if (!event.name || !event.startDate || !event.url) return null;
+type SchemaMetadata = {
+  startAt: Date;
+  endAt?: Date;
+  description?: string;
+  coverImageUrl?: string;
+  priceType?: CrawledEvent["priceType"];
+  organizerName?: string;
+};
+
+function buildSchemaMetadataMap(schemaEvents: SchemaEvent[]) {
+  const map = new Map<string, SchemaMetadata>();
+
+  for (const event of schemaEvents) {
+    if (!event.url || !event.startDate) continue;
+
+    const startAt = new Date(event.startDate);
+    if (Number.isNaN(startAt.getTime())) continue;
+
+    const endAt = event.endDate ? new Date(event.endDate) : undefined;
+    const externalUrl = normalizeEventUrl(event.url);
+
+    map.set(externalUrl, {
+      startAt,
+      endAt: endAt && !Number.isNaN(endAt.getTime()) ? endAt : undefined,
+      description: event.description,
+      coverImageUrl: typeof event.image === "string" ? event.image : undefined,
+      priceType: parsePriceType(event),
+      organizerName: parseOrganizer(event),
+    });
+  }
+
+  return map;
+}
+
+function parseEmbeddedEvents(html: string): EmbeddedEvent[] {
+  const events: EmbeddedEvent[] = [];
+  const pattern =
+    /"name":"((?:\\.|[^"\\])*)","language":"([^"]+)","url":"((?:\\.|[^"\\])*)","hide_start_date":(?:true|false),"summary":"((?:\\.|[^"\\])*)"/g;
+
+  for (const match of html.matchAll(pattern)) {
+    events.push({
+      name: unescapeJsonString(match[1]),
+      language: match[2],
+      url: unescapeJsonString(match[3]),
+      summary: unescapeJsonString(match[4]),
+      eid: extractEventId(unescapeJsonString(match[3])),
+    });
+  }
+
+  const byUrl = new Map<string, EmbeddedEvent>();
+  for (const event of events) {
+    byUrl.set(normalizeEventUrl(event.url), event);
+  }
+
+  return [...byUrl.values()];
+}
+
+function mapEmbeddedEvent(
+  event: EmbeddedEvent,
+  schema: SchemaMetadata | undefined
+): CrawledEvent | null {
+  if (!isEnglishLanguage(event.language) || !isAllowedEventUrl(event.url)) {
+    return null;
+  }
+
+  if (!schema) return null;
 
   const externalUrl = normalizeEventUrl(event.url);
-  const startAt = new Date(event.startDate);
-  if (Number.isNaN(startAt.getTime())) return null;
-
-  const endAt = event.endDate ? new Date(event.endDate) : undefined;
+  const description = event.summary || schema.description;
 
   return {
     sourceKey: SOURCE_KEY,
-    sourceEventId: extractEventId(externalUrl),
+    sourceEventId: event.eid ?? extractEventId(externalUrl),
     title: decodeHtmlEntities(event.name.trim()),
-    descriptionHtml: event.description
-      ? `<p>${decodeHtmlEntities(event.description.trim())}</p>`
+    descriptionHtml: description
+      ? `<p>${decodeHtmlEntities(description.trim())}</p>`
       : undefined,
-    startAt,
-    endAt: endAt && !Number.isNaN(endAt.getTime()) ? endAt : undefined,
+    startAt: schema.startAt,
+    endAt: schema.endAt,
     city: "online",
     locationType: "online",
     registrationUrl: externalUrl,
     externalUrl,
-    priceType: parsePriceType(event),
+    priceType: schema.priceType ?? "unknown",
     language: "en",
-    organizerName: parseOrganizer(event),
+    organizerName: schema.organizerName,
     tags: ["online", "business"],
-    coverImageUrl: typeof event.image === "string" ? event.image : undefined,
+    coverImageUrl: schema.coverImageUrl,
   };
 }
 
@@ -114,11 +190,16 @@ export const eventbriteCrawler = {
   sourceKey: SOURCE_KEY,
   async crawl(): Promise<CrawledEvent[]> {
     const html = await fetchHtml(LISTING_URL);
+    const embeddedEvents = parseEmbeddedEvents(html);
     const schemaEvents = collectSchemaEvents(extractJsonLdBlocks(html));
+    const schemaMetadata = buildSchemaMetadataMap(schemaEvents);
     const byUrl = new Map<string, CrawledEvent>();
 
-    for (const schemaEvent of schemaEvents) {
-      const mapped = mapSchemaEvent(schemaEvent);
+    for (const embeddedEvent of embeddedEvents) {
+      const mapped = mapEmbeddedEvent(
+        embeddedEvent,
+        schemaMetadata.get(normalizeEventUrl(embeddedEvent.url))
+      );
       if (mapped) {
         byUrl.set(mapped.externalUrl, mapped);
       }

@@ -44,10 +44,23 @@ export function stripHtml(value: string) {
 
 export function decodeHtmlEntities(value: string) {
   return value
+    .replace(/&#(\d+);/g, (_, code: string) => String.fromCharCode(Number(code)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex: string) =>
+      String.fromCharCode(parseInt(hex, 16))
+    )
     .replace(/&nbsp;/g, " ")
     .replace(/&amp;/g, "&")
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">");
+}
+
+export function unescapeJsonString(value: string) {
+  return value
+    .replace(/\\u([0-9a-fA-F]{4})/g, (_, hex: string) =>
+      String.fromCharCode(parseInt(hex, 16))
+    )
+    .replace(/\\"/g, '"')
+    .replace(/\\\\/g, "\\");
 }

@@ -1,3 +1,4 @@
+import { filterUpcomingEvents } from "@/crawlers/filter-events";
 import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/slugify";
 import type {
@@ -109,6 +110,8 @@ export async function importCrawledEvents(
   sourceId: string,
   events: CrawledEvent[]
 ): Promise<ImportEventsResult> {
+  const upcomingEvents = filterUpcomingEvents(events);
+
   const [createdById, defaultEventTypeId] = await Promise.all([
     getSystemCreatedById(),
     resolveEventTypeId(),
@@ -117,7 +120,7 @@ export async function importCrawledEvents(
   let eventsCreated = 0;
   let eventsUpdated = 0;
 
-  for (const crawled of events) {
+  for (const crawled of upcomingEvents) {
     const cityId = await resolveCityId(crawled.city);
     const organizerId = await resolveOrganizerId(crawled.organizerName);
     const tagIds = await resolveTagIds(crawled.tags);
@@ -197,7 +200,7 @@ export async function importCrawledEvents(
   }
 
   return {
-    eventsFound: events.length,
+    eventsFound: upcomingEvents.length,
     eventsCreated,
     eventsUpdated,
   };
