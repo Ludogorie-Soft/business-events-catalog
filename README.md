@@ -1,36 +1,96 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Business Events Bulgaria
+
+Web catalog for discovering and subscribing to business events in Bulgaria.
 
 ## Getting Started
 
-First, run the development server:
+1. Copy `.env.example` to `.env` and fill in the values.
+2. Start PostgreSQL:
+
+```bash
+docker compose up -d
+```
+
+3. Run migrations and seed reference data:
+
+```bash
+npm install
+npm run db:migrate
+npm run db:seed
+```
+
+4. Start the development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Default admin user after seed: `admin@example.com` / `admin1234`
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Crawling Online Events
 
-## Learn More
+The app can import online business events from active sources such as Eventbrite and Startup Council.
 
-To learn more about Next.js, take a look at the following resources:
+### Prerequisites
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- PostgreSQL is running
+- Database is migrated and seeded (`npm run db:seed` creates crawl sources)
+- `.env` contains a valid `DATABASE_URL`
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Test crawlers without importing
 
-## Deploy on Vercel
+Parses source pages and prints the events that would be imported:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+npm run crawl:test
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Import events from the terminal
+
+Runs all active crawlers and saves new/updated events to the database:
+
+```bash
+npm run crawl:run
+```
+
+Import from a single source:
+
+```bash
+npm run crawl:run eventbrite
+npm run crawl:run startupcouncil
+```
+
+### Import via protected API route
+
+Useful for cron-job.org or other schedulers:
+
+```bash
+curl -H "Authorization: Bearer YOUR_CRON_SECRET" http://localhost:3000/api/cron/crawl-events
+```
+
+Single source:
+
+```bash
+curl -H "Authorization: Bearer YOUR_CRON_SECRET" "http://localhost:3000/api/cron/crawl-events?source=eventbrite"
+```
+
+Set `CRON_SECRET` in `.env`.
+
+### Import from the admin UI
+
+1. Log in as an admin user
+2. Open [http://localhost:3000/admin](http://localhost:3000/admin)
+3. Click **Изтегли събития**
+4. The page shows how many new events were imported and how many existing ones were updated
+
+Imported events are published automatically. Duplicate detection uses `externalUrl`.
+
+## Useful Commands
+
+```bash
+npm run db:studio      # Open Prisma Studio
+npm run dev:clean      # Clear Next.js cache and restart dev server
+npm run lint           # Run ESLint
+```

@@ -7,6 +7,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   if (!session || session.user.role !== "ADMIN") redirect("/");
 
   const navLinks = [
+    { href: "/admin", label: "🏠 Табло" },
     { href: "/admin/events", label: "📋 Събития" },
     { href: "/admin/sources", label: "🔗 Източници" },
   ];

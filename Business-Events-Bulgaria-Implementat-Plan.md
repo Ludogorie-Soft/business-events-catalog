@@ -543,9 +543,7 @@ src/crawlers
 
     sources/
         eventbrite.ts
-        digital4.ts
-        devbg.ts
-        luma.ts
+        startupcouncil.ts
 ```
 
 ## Crawled Event Structure
@@ -578,7 +576,7 @@ type CrawledEvent = {
 
 ## Done when
 
-* [ ] First crawler imports events
+* [x] First crawler imports events
 
 ---
 
