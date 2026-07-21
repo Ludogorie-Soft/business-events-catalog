@@ -24,6 +24,8 @@ export function sortEventsByUserAttendance<T extends { id: string; startAt: Date
   });
 }
 
+export type EventTimeframe = "upcoming" | "past" | "all";
+
 export type EventFilters = {
   citySlug?: string;
   eventTypeSlug?: string;
@@ -35,11 +37,60 @@ export type EventFilters = {
   dateFrom?: string;
   dateTo?: string;
   status?: EventStatus;
+  /** Defaults to "upcoming". Multi-day events stay visible until endAt. */
+  timeframe?: EventTimeframe;
 };
 
+function localTodayIsoDate(now = new Date()) {
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+/** True when a YYYY-MM-DD filter date is strictly before today (local). */
+function isFilterDateInPast(dateStr: string, now = new Date()) {
+  return dateStr < localTodayIsoDate(now);
+}
+
+function resolveTimeframe(filters: EventFilters, now = new Date()): EventTimeframe {
+  if (filters.timeframe) return filters.timeframe;
+
+  // Past "От дата" / "До дата" should include archived events in the range
+  const fromInPast = filters.dateFrom && isFilterDateInPast(filters.dateFrom, now);
+  const toInPast = filters.dateTo && isFilterDateInPast(filters.dateTo, now);
+  if (fromInPast || toInPast) return "all";
+
+  return "upcoming";
+}
+
+function timeframeWhere(timeframe: EventTimeframe, now: Date) {
+  if (timeframe === "all") return undefined;
+
+  // Upcoming while endAt (or startAt if no end) is still in the future
+  const upcoming = {
+    OR: [
+      { endAt: { gte: now } },
+      { AND: [{ endAt: null }, { startAt: { gte: now } }] },
+    ],
+  };
+
+  if (timeframe === "upcoming") return upcoming;
+
+  return {
+    OR: [
+      { endAt: { lt: now } },
+      { AND: [{ endAt: null }, { startAt: { lt: now } }] },
+    ],
+  };
+}
+
 export async function getEvents(filters: EventFilters = {}) {
+  const now = new Date();
+  const timeframe = resolveTimeframe(filters, now);
   const where: Record<string, unknown> = {
     status: filters.status ?? "PUBLISHED",
+    ...timeframeWhere(timeframe, now),
   };
 
   if (filters.citySlug) {
@@ -72,7 +123,7 @@ export async function getEvents(filters: EventFilters = {}) {
 
   return prisma.event.findMany({
     where,
-    orderBy: { startAt: "asc" },
+    orderBy: { startAt: timeframe === "past" ? "desc" : "asc" },
     include: {
       city: true,
       eventType: true,

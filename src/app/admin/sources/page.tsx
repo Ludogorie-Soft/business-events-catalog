@@ -12,6 +12,7 @@ function formatDateTime(value: Date | null | undefined) {
   if (!value) return "—";
 
   return new Date(value).toLocaleString("bg-BG", {
+    timeZone: "Europe/Sofia",
     day: "numeric",
     month: "short",
     year: "numeric",

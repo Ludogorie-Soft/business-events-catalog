@@ -98,6 +98,7 @@ export async function createEvent(formData: FormData) {
 
   revalidatePath("/admin/events");
   revalidatePath("/events");
+  revalidatePath("/archive");
   redirect("/admin/events");
 }
 
@@ -171,6 +172,7 @@ export async function updateEvent(id: string, formData: FormData) {
 
   revalidatePath("/admin/events");
   revalidatePath("/events");
+  revalidatePath("/archive");
   revalidatePath(`/events/${slug}`);
   redirect("/admin/events");
 }
@@ -183,6 +185,7 @@ export async function publishEvent(id: string) {
   });
   revalidatePath("/admin/events");
   revalidatePath("/events");
+  revalidatePath("/archive");
   revalidatePath(`/events/${event.slug}`);
 }
 
@@ -194,5 +197,6 @@ export async function cancelEvent(id: string) {
   });
   revalidatePath("/admin/events");
   revalidatePath("/events");
+  revalidatePath("/archive");
   revalidatePath(`/events/${event.slug}`);
 }
