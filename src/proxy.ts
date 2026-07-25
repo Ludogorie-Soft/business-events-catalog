@@ -1,37 +1,35 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getToken } from "next-auth/jwt";
+import { NextResponse } from "next/server";
+import { auth } from "@/auth";
 
-export default async function proxy(req: NextRequest) {
+/**
+ * Route protection for admin/profile.
+ * Uses Auth.js `auth()` so session cookies decode with the same secret/cookie
+ * names as server components (fixes Vercel redirects after a successful login).
+ */
+export default auth((req) => {
   const { pathname } = req.nextUrl;
+  const isLoggedIn = !!req.auth?.user;
+  const role = req.auth?.user?.role;
 
-  const token = await getToken({
-    req,
-    secret: process.env.AUTH_SECRET,
-  });
-
-  // Protect /admin — must be logged in and ADMIN role
   if (pathname.startsWith("/admin")) {
-    if (!token) {
-      return NextResponse.redirect(
-        new URL(`/auth/login?callbackUrl=${encodeURIComponent(pathname)}`, req.url)
-      );
+    if (!isLoggedIn) {
+      const loginUrl = new URL("/auth/login", req.nextUrl.origin);
+      loginUrl.searchParams.set("callbackUrl", pathname);
+      return NextResponse.redirect(loginUrl);
     }
-    if (token.role !== "ADMIN") {
-      return NextResponse.redirect(new URL("/", req.url));
+    if (role !== "ADMIN") {
+      return NextResponse.redirect(new URL("/", req.nextUrl.origin));
     }
   }
 
-  // Protect /profile — must be logged in
-  if (pathname.startsWith("/profile")) {
-    if (!token) {
-      return NextResponse.redirect(
-        new URL(`/auth/login?callbackUrl=${encodeURIComponent(pathname)}`, req.url)
-      );
-    }
+  if (pathname.startsWith("/profile") && !isLoggedIn) {
+    const loginUrl = new URL("/auth/login", req.nextUrl.origin);
+    loginUrl.searchParams.set("callbackUrl", pathname);
+    return NextResponse.redirect(loginUrl);
   }
 
   return NextResponse.next();
-}
+});
 
 export const config = {
   matcher: ["/admin/:path*", "/profile/:path*"],

@@ -8,6 +8,8 @@ import type { UserRole } from "@/generated/prisma/client";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
+  // Explicit so production works whether Vercel has AUTH_SECRET or NEXTAUTH_SECRET.
+  secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
   providers: [
     Credentials({
       name: "credentials",

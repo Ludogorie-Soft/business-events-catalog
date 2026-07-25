@@ -5,6 +5,8 @@ import type { NextAuthConfig } from "next-auth";
  * Must NOT import Prisma or any Node.js-only modules.
  */
 export const authConfig: NextAuthConfig = {
+  // Required on Vercel / behind proxies so Auth.js trusts the Host header.
+  trustHost: true,
   session: { strategy: "jwt" },
   pages: {
     signIn: "/auth/login",
