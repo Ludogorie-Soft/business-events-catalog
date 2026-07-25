@@ -24,4 +24,5 @@ export async function toggleSourceActive(sourceId: string) {
 
   revalidatePath("/admin/sources");
   revalidatePath("/admin");
+  revalidatePath("/sources");
 }

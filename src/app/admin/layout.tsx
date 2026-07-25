@@ -9,7 +9,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const navLinks = [
     { href: "/admin", label: "🏠 Табло" },
     { href: "/admin/events", label: "📋 Събития" },
+    { href: "/admin/moderation", label: "🛡️ Модерация" },
     { href: "/admin/sources", label: "🔗 Източници" },
+    { href: "/admin/source-suggestions", label: "💡 Предложения" },
   ];
 
   return (

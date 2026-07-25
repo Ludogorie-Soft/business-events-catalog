@@ -15,9 +15,16 @@ export type CrawledEvent = {
   registrationUrl?: string;
   externalUrl: string;
   priceType?: CrawledPriceType;
+  priceMin?: number;
+  priceMax?: number;
+  currency?: string;
   language?: CrawledLanguage;
   organizerName?: string;
   tags?: string[];
+  /** Topic slugs; also inferred from title/description during import. */
+  topics?: string[];
+  /** Event type slug; also inferred from title/location during import. */
+  eventTypeSlug?: string;
   coverImageUrl?: string;
 };
 

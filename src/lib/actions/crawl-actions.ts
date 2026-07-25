@@ -54,4 +54,5 @@ function revalidatePaths() {
   revalidatePath("/admin/sources");
   revalidatePath("/events");
   revalidatePath("/archive");
+  revalidatePath("/sources");
 }

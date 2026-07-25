@@ -1,6 +1,13 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { publishEvent, cancelEvent } from "@/lib/actions/event-actions";
+import {
+  publishEvent,
+  cancelEvent,
+  hideEvent,
+  unhideEvent,
+  blacklistEvent,
+  unblacklistEvent,
+} from "@/lib/actions/event-actions";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Управление на събития" };
@@ -9,12 +16,16 @@ const statusLabels: Record<string, string> = {
   DRAFT: "Чернова",
   PUBLISHED: "Публикувано",
   CANCELLED: "Отменено",
+  HIDDEN: "Скрито",
+  BLACKLISTED: "Черен списък",
 };
 
 const statusColors: Record<string, string> = {
   DRAFT: "bg-yellow-50 text-yellow-700",
   PUBLISHED: "bg-green-50 text-green-700",
   CANCELLED: "bg-red-50 text-red-600",
+  HIDDEN: "bg-slate-100 text-slate-700",
+  BLACKLISTED: "bg-purple-50 text-purple-700",
 };
 
 export default async function AdminEventsPage() {
@@ -71,14 +82,15 @@ export default async function AdminEventsPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <div className="flex justify-end gap-2">
+                    <div className="flex flex-wrap justify-end gap-2">
                       <Link
                         href={`/admin/events/${event.id}`}
                         className="rounded px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100"
                       >
                         Редактирай
                       </Link>
-                      {event.status !== "PUBLISHED" && (
+                      {event.status !== "PUBLISHED" &&
+                        event.status !== "BLACKLISTED" && (
                         <form action={publishEvent.bind(null, event.id)}>
                           <button
                             type="submit"
@@ -88,7 +100,49 @@ export default async function AdminEventsPage() {
                           </button>
                         </form>
                       )}
-                      {event.status !== "CANCELLED" && (
+                      {event.status === "HIDDEN" && (
+                        <form action={unhideEvent.bind(null, event.id)}>
+                          <button
+                            type="submit"
+                            className="rounded px-2.5 py-1 text-xs font-medium text-green-700 hover:bg-green-50"
+                          >
+                            Покажи
+                          </button>
+                        </form>
+                      )}
+                      {event.status === "BLACKLISTED" && (
+                        <form action={unblacklistEvent.bind(null, event.id)}>
+                          <button
+                            type="submit"
+                            className="rounded px-2.5 py-1 text-xs font-medium text-green-700 hover:bg-green-50"
+                          >
+                            Премахни от списъка
+                          </button>
+                        </form>
+                      )}
+                      {event.status !== "HIDDEN" &&
+                        event.status !== "BLACKLISTED" && (
+                        <form action={hideEvent.bind(null, event.id)}>
+                          <button
+                            type="submit"
+                            className="rounded px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100"
+                          >
+                            Скрий
+                          </button>
+                        </form>
+                      )}
+                      {event.status !== "BLACKLISTED" && (
+                        <form action={blacklistEvent.bind(null, event.id)}>
+                          <button
+                            type="submit"
+                            className="rounded px-2.5 py-1 text-xs font-medium text-purple-700 hover:bg-purple-50"
+                          >
+                            Черен списък
+                          </button>
+                        </form>
+                      )}
+                      {event.status !== "CANCELLED" &&
+                        event.status !== "BLACKLISTED" && (
                         <form action={cancelEvent.bind(null, event.id)}>
                           <button
                             type="submit"

@@ -15,6 +15,9 @@ export default function Footer() {
           <Link href="/archive" className="hover:text-gray-900">
             Архив
           </Link>
+          <Link href="/sources" className="hover:text-gray-900">
+            Източници
+          </Link>
         </nav>
       </div>
     </footer>

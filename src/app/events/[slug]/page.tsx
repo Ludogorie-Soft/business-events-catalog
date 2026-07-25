@@ -5,6 +5,7 @@ import { getEventBySlug } from "@/lib/events";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import AttendanceButtons from "@/components/AttendanceButtons";
+import { formatEventPriceLabel } from "@/lib/format-price";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -22,12 +23,6 @@ const locationLabels: Record<string, string> = {
   PHYSICAL: "На живо",
   ONLINE: "Онлайн",
   HYBRID: "Хибридно",
-};
-
-const priceLabels: Record<string, string> = {
-  FREE: "Безплатно",
-  PAID: "Платено",
-  UNKNOWN: "Неизвестна цена",
 };
 
 const languageLabels: Record<string, string> = {
@@ -65,6 +60,7 @@ export default async function EventDetailPage({ params }: Props) {
         minute: "2-digit",
       })
     : null;
+  const priceLabel = formatEventPriceLabel(event) ?? "Неизвестна цена";
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
@@ -100,7 +96,7 @@ export default async function EventDetailPage({ params }: Props) {
               : "bg-gray-100 text-gray-500"
           }`}
         >
-          {priceLabels[event.priceType]}
+          {priceLabel}
         </span>
         {event.language && (
           <span className="rounded-full bg-purple-50 px-3 py-1 text-sm font-medium text-purple-700">
@@ -146,11 +142,7 @@ export default async function EventDetailPage({ params }: Props) {
         {event.priceType === "PAID" && event.priceMin != null && (
           <div>
             <span className="font-semibold">💰 Цена:</span>{" "}
-            {Number(event.priceMin).toFixed(0)}{" "}
-            {event.priceMax && Number(event.priceMax) !== Number(event.priceMin)
-              ? `– ${Number(event.priceMax).toFixed(0)} `
-              : ""}
-            {event.currency ?? "EUR"}
+            {formatEventPriceLabel(event)}
           </div>
         )}
         {event.capacity && (

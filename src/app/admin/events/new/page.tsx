@@ -7,7 +7,7 @@ import { createEvent } from "@/lib/actions/event-actions";
 export const metadata: Metadata = { title: "Ново събитие" };
 
 export default async function NewEventPage() {
-  const { cities, eventTypes, tags } = await getFilterOptions();
+  const { cities, eventTypes, topics, tags } = await getFilterOptions();
 
   return (
     <div>
@@ -21,6 +21,7 @@ export default async function NewEventPage() {
       <EventForm
         cities={cities}
         eventTypes={eventTypes}
+        topics={topics}
         tags={tags}
         action={createEvent}
         submitLabel="Създай събитие"

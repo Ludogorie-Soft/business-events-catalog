@@ -20,6 +20,8 @@ enum EventStatus {
   DRAFT
   PUBLISHED
   CANCELLED
+  HIDDEN
+  BLACKLISTED
 }
 
 enum LocationType {
@@ -57,6 +59,12 @@ enum CrawlStatus {
   FAILED
 }
 
+enum SourceSuggestionStatus {
+  PENDING
+  REJECTED
+  IMPLEMENTED
+}
+
 enum EmailNotificationStatus {
   SENT
   FAILED
@@ -78,11 +86,12 @@ model User {
   emailVerificationToken       String?   @unique
   emailVerificationExpiresAt   DateTime?
 
-  city          City?               @relation(fields: [cityId], references: [id])
-  attendance    EventAttendance[]
-  subscriptions Subscription[]
-  createdEvents Event[]             @relation("CreatedBy")
-  notifications EmailNotification[]
+  city               City?                 @relation(fields: [cityId], references: [id])
+  attendance         EventAttendance[]
+  subscriptions      Subscription[]
+  createdEvents      Event[]               @relation("CreatedBy")
+  notifications      EmailNotification[]
+  titleBlacklists    EventTitleBlacklist[] @relation("BlacklistCreatedBy")
 }
 
 // ---------------------------------------------------------------------------
@@ -393,4 +402,32 @@ model EmailNotificationEvent {
   event        Event             @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
   @@id([notificationId, eventId])
+}
+
+// ---------------------------------------------------------------------------
+// Source suggestions (public submissions)
+// ---------------------------------------------------------------------------
+
+model SourceSuggestion {
+  id        String                 @id @default(cuid())
+  url       String
+  notes     String?
+  status    SourceSuggestionStatus @default(PENDING)
+  createdAt DateTime               @default(now())
+  updatedAt DateTime               @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Event title blacklist (skip matching titles on future crawls)
+// ---------------------------------------------------------------------------
+
+model EventTitleBlacklist {
+  id              String   @id @default(cuid())
+  normalizedTitle String   @unique
+  originalTitle   String
+  eventId         String?
+  createdAt       DateTime @default(now())
+  createdById     String?
+
+  createdBy User? @relation("BlacklistCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
 }

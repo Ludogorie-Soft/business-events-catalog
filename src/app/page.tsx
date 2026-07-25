@@ -10,6 +10,10 @@ export default function Home() {
         Открийте конференции, уъркшопи, нетуъркинг срещи и още бизнес събития
         в цялата страна.
       </p>
+      <p className="mt-4 max-w-xl text-base text-gray-600">
+        Регистрирай се безплатно, за да получаваш персонализиран имейл със
+        събития подходящи за теб!
+      </p>
       <div className="mt-10 flex flex-wrap justify-center gap-4">
         <Link
           href="/events"
@@ -32,11 +36,11 @@ export default function Home() {
         </p>
         <div className="flex flex-wrap justify-center gap-3">
           {[
-            { href: "/city/sofia", label: "София" },
-            { href: "/city/vratsa", label: "Враца" },
-            { href: "/city/montana", label: "Монтана" },
-            { href: "/city/pleven", label: "Плевен" },
-            { href: "/online", label: "🖥️ Онлайн" },
+            { href: "/events?city=sofia", label: "София" },
+            { href: "/events?city=vratsa", label: "Враца" },
+            { href: "/events?city=montana", label: "Монтана" },
+            { href: "/events?city=pleven", label: "Плевен" },
+            { href: "/events?city=online", label: "🖥️ Онлайн" },
           ].map(({ href, label }) => (
             <Link
               key={href}

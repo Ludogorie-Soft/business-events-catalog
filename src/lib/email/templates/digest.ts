@@ -5,6 +5,7 @@ import type {
   Venue,
 } from "@/generated/prisma/client";
 import { getAppUrl } from "@/lib/email/config";
+import { formatEventPriceLabel } from "@/lib/format-price";
 import { escapeHtml, wrapEmailHtml } from "@/lib/email/templates/layout";
 
 type DigestEvent = Event & {
@@ -17,12 +18,6 @@ const locationLabels: Record<string, string> = {
   PHYSICAL: "На живо",
   ONLINE: "Онлайн",
   HYBRID: "Хибридно",
-};
-
-const priceLabels: Record<string, string> = {
-  FREE: "Безплатно",
-  PAID: "Платено",
-  UNKNOWN: "",
 };
 
 function formatEventDate(startAt: Date) {
@@ -47,8 +42,7 @@ function formatEventLocation(event: DigestEvent) {
 
 function renderEventItem(event: DigestEvent) {
   const appUrl = getAppUrl();
-  const price =
-    event.priceType !== "UNKNOWN" ? priceLabels[event.priceType] : null;
+  const price = formatEventPriceLabel(event);
 
   return `
     <tr>

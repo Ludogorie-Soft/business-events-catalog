@@ -8,6 +8,7 @@ import type {
   EventTag,
   Tag,
 } from "@/generated/prisma/client";
+import { formatEventPriceLabel } from "@/lib/format-price";
 
 type Props = {
   event: Event & {
@@ -43,14 +44,9 @@ const locationLabels: Record<string, string> = {
   HYBRID: "Хибридно",
 };
 
-const priceLabels: Record<string, string> = {
-  FREE: "Безплатно",
-  PAID: "Платено",
-  UNKNOWN: "",
-};
-
 export default function EventCard({ event, attendanceStatus }: Props) {
   const attendance = attendanceStatus ? attendanceStyles[attendanceStatus] : null;
+  const priceLabel = formatEventPriceLabel(event);
 
   const dateStr = new Date(event.startAt).toLocaleDateString("bg-BG", {
     day: "numeric",
@@ -93,7 +89,7 @@ export default function EventCard({ event, attendanceStatus }: Props) {
           <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">
             {locationLabels[event.locationType]}
           </span>
-          {event.priceType !== "UNKNOWN" && (
+          {priceLabel && (
             <span
               className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
                 event.priceType === "FREE"
@@ -101,7 +97,7 @@ export default function EventCard({ event, attendanceStatus }: Props) {
                   : "bg-amber-50 text-amber-700"
               }`}
             >
-              {priceLabels[event.priceType]}
+              {priceLabel}
             </span>
           )}
         </div>

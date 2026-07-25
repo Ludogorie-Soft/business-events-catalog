@@ -7,7 +7,7 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 // Bump when schema changes so dev server picks up regenerated client without a full restart.
-const PRISMA_SCHEMA_VERSION = "20260620183000_email_verification";
+const PRISMA_SCHEMA_VERSION = "20260725194539_event_hide_blacklist";
 
 function createPrismaClient() {
   const adapter = new PrismaPg({

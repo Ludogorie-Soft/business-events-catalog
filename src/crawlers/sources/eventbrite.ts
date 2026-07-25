@@ -8,6 +8,7 @@ import type { CrawledEvent } from "@/crawlers/types";
 
 const SOURCE_KEY = "eventbrite";
 const LISTING_URL = "https://www.eventbrite.com/d/online/business--events/";
+const DETAIL_FETCH_CONCURRENCY = 5;
 
 type SchemaEvent = {
   "@type"?: string;
@@ -17,7 +18,19 @@ type SchemaEvent = {
   endDate?: string;
   url?: string;
   image?: string;
-  offers?: { price?: string | number } | Array<{ price?: string | number }>;
+  offers?:
+    | {
+        price?: string | number;
+        lowPrice?: string | number;
+        highPrice?: string | number;
+        priceCurrency?: string;
+      }
+    | Array<{
+        price?: string | number;
+        lowPrice?: string | number;
+        highPrice?: string | number;
+        priceCurrency?: string;
+      }>;
   organizer?: { name?: string } | Array<{ name?: string }>;
 };
 
@@ -54,12 +67,108 @@ function isAllowedEventUrl(url: string) {
   }
 }
 
-function parsePriceType(event: SchemaEvent): CrawledEvent["priceType"] {
+type ExtractedPrice = {
+  priceType: NonNullable<CrawledEvent["priceType"]>;
+  priceMin?: number;
+  priceMax?: number;
+  currency?: string;
+};
+
+function parseOfferAmounts(low?: string | number, high?: string | number) {
+  const hasLow = low !== undefined && low !== null && low !== "";
+  const hasHigh = high !== undefined && high !== null && high !== "";
+  if (!hasLow && !hasHigh) return null;
+
+  const lowAmount = hasLow ? Number(low) : 0;
+  const highAmount = hasHigh ? Number(high) : 0;
+  if (Number.isNaN(lowAmount) || Number.isNaN(highAmount)) return null;
+
+  return { lowAmount, highAmount };
+}
+
+function priceFromOfferRange(
+  low?: string | number,
+  high?: string | number,
+  currency?: string
+): ExtractedPrice | null {
+  const amounts = parseOfferAmounts(low, high);
+  if (!amounts) return null;
+
+  const { lowAmount, highAmount } = amounts;
+  // Matches Eventbrite UI: price next to "Get tickets" when any ticket costs money;
+  // no displayed price when the range is 0–0 (free registration).
+  if (lowAmount > 0 || highAmount > 0) {
+    return {
+      priceType: "paid",
+      priceMin: lowAmount,
+      priceMax: highAmount,
+      currency: currency?.toUpperCase(),
+    };
+  }
+
+  return { priceType: "free" };
+}
+
+function parsePrice(event: SchemaEvent): ExtractedPrice | null {
   const offers = Array.isArray(event.offers) ? event.offers[0] : event.offers;
-  if (!offers?.price && offers?.price !== 0) return "unknown";
-  const price = Number(offers.price);
-  if (Number.isNaN(price)) return "unknown";
-  return price <= 0 ? "free" : "paid";
+  if (!offers) return null;
+
+  const fromRange = priceFromOfferRange(
+    offers.lowPrice,
+    offers.highPrice,
+    offers.priceCurrency
+  );
+  if (fromRange) return fromRange;
+
+  if (offers.price !== undefined && offers.price !== null && offers.price !== "") {
+    const amount = Number(offers.price);
+    if (Number.isNaN(amount)) return null;
+    if (amount > 0) {
+      return {
+        priceType: "paid",
+        priceMin: amount,
+        priceMax: amount,
+        currency: offers.priceCurrency?.toUpperCase(),
+      };
+    }
+    return { priceType: "free" };
+  }
+
+  return null;
+}
+
+/**
+ * Prefer AggregateOffer prices from the detail page JSON-LD.
+ * Do not use `"isFree"` — Eventbrite often sets it to false even for free events.
+ */
+function extractDetailPrice(html: string): ExtractedPrice | null {
+  const schemaEvents = collectSchemaEvents(extractJsonLdBlocks(html));
+  for (const event of schemaEvents) {
+    const price = parsePrice(event);
+    if (price) return price;
+  }
+
+  // Fallback if JSON-LD parsing missed the AggregateOffer block.
+  const aggregate = html.match(
+    /"@type"\s*:\s*"AggregateOffer"[^}]*"lowPrice"\s*:\s*"([^"]+)"\s*,\s*"highPrice"\s*:\s*"([^"]+)"[^}]*"priceCurrency"\s*:\s*"([^"]+)"/
+  );
+  if (aggregate) {
+    return priceFromOfferRange(aggregate[1], aggregate[2], aggregate[3]);
+  }
+
+  const aggregateNoCurrency = html.match(
+    /"@type"\s*:\s*"AggregateOffer"[^}]*"lowPrice"\s*:\s*"([^"]+)"\s*,\s*"highPrice"\s*:\s*"([^"]+)"/
+  );
+  if (aggregateNoCurrency) {
+    const currency = html.match(/"currency"\s*:\s*"([A-Z]{3})"/)?.[1];
+    return priceFromOfferRange(
+      aggregateNoCurrency[1],
+      aggregateNoCurrency[2],
+      currency
+    );
+  }
+
+  return null;
 }
 
 function parseOrganizer(event: SchemaEvent) {
@@ -101,8 +210,53 @@ type SchemaMetadata = {
   description?: string;
   coverImageUrl?: string;
   priceType?: CrawledEvent["priceType"];
+  priceMin?: number;
+  priceMax?: number;
+  currency?: string;
   organizerName?: string;
 };
+
+/** Listing JSON-LD is date-only (YYYY-MM-DD); detail pages include a time. */
+function hasDateTime(value: string | undefined): value is string {
+  return Boolean(value && /T\d{2}:\d{2}/.test(value));
+}
+
+function parseDateTime(value: string | undefined): Date | undefined {
+  if (!hasDateTime(value)) return undefined;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? undefined : date;
+}
+
+/**
+ * Detail pages expose real times via JSON-LD ISO offsets or embedded utc fields.
+ * Listing pages only have date-only startDate values that parse as 00:00 UTC.
+ */
+function extractDetailTimes(html: string): { startAt: Date; endAt?: Date } | null {
+  const schemaEvents = collectSchemaEvents(extractJsonLdBlocks(html));
+  for (const event of schemaEvents) {
+    const startAt = parseDateTime(event.startDate);
+    if (!startAt) continue;
+    return {
+      startAt,
+      endAt: parseDateTime(event.endDate),
+    };
+  }
+
+  const startUtc = html.match(
+    /"startDate":\{"timezone":"[^"]+","local":"[^"]+","utc":"([^"]+)"\}/
+  )?.[1];
+  const endUtc = html.match(
+    /"endDate":\{"timezone":"[^"]+","local":"[^"]+","utc":"([^"]+)"\}/
+  )?.[1];
+
+  const startAt = parseDateTime(startUtc);
+  if (!startAt) return null;
+
+  return {
+    startAt,
+    endAt: parseDateTime(endUtc),
+  };
+}
 
 function buildSchemaMetadataMap(schemaEvents: SchemaEvent[]) {
   const map = new Map<string, SchemaMetadata>();
@@ -110,18 +264,25 @@ function buildSchemaMetadataMap(schemaEvents: SchemaEvent[]) {
   for (const event of schemaEvents) {
     if (!event.url || !event.startDate) continue;
 
+    // Prefer timed values when present; date-only is a temporary placeholder
+    // until the detail page is fetched.
     const startAt = new Date(event.startDate);
     if (Number.isNaN(startAt.getTime())) continue;
 
     const endAt = event.endDate ? new Date(event.endDate) : undefined;
     const externalUrl = normalizeEventUrl(event.url);
 
+    const price = parsePrice(event);
+
     map.set(externalUrl, {
       startAt,
       endAt: endAt && !Number.isNaN(endAt.getTime()) ? endAt : undefined,
       description: event.description,
       coverImageUrl: typeof event.image === "string" ? event.image : undefined,
-      priceType: parsePriceType(event),
+      priceType: price?.priceType ?? "unknown",
+      priceMin: price?.priceMin,
+      priceMax: price?.priceMax,
+      currency: price?.currency,
       organizerName: parseOrganizer(event),
     });
   }
@@ -179,11 +340,66 @@ function mapEmbeddedEvent(
     registrationUrl: externalUrl,
     externalUrl,
     priceType: schema.priceType ?? "unknown",
+    priceMin: schema.priceMin,
+    priceMax: schema.priceMax,
+    currency: schema.currency,
     language: "en",
     organizerName: schema.organizerName,
     tags: ["online", "business"],
     coverImageUrl: schema.coverImageUrl,
   };
+}
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  concurrency: number,
+  mapper: (item: T) => Promise<R>
+): Promise<R[]> {
+  if (items.length === 0) return [];
+
+  const results = new Array<R>(items.length);
+  let nextIndex = 0;
+
+  async function worker() {
+    while (nextIndex < items.length) {
+      const index = nextIndex++;
+      results[index] = await mapper(items[index]);
+    }
+  }
+
+  const workers = Array.from(
+    { length: Math.min(concurrency, items.length) },
+    () => worker()
+  );
+  await Promise.all(workers);
+  return results;
+}
+
+async function enrichFromDetailPages(events: CrawledEvent[]): Promise<CrawledEvent[]> {
+  return mapWithConcurrency(events, DETAIL_FETCH_CONCURRENCY, async (event) => {
+    try {
+      const html = await fetchHtml(event.externalUrl);
+      const times = extractDetailTimes(html);
+      const price = extractDetailPrice(html);
+      return {
+        ...event,
+        ...(times
+          ? { startAt: times.startAt, endAt: times.endAt }
+          : {}),
+        ...(price
+          ? {
+              priceType: price.priceType,
+              priceMin: price.priceMin,
+              priceMax: price.priceMax,
+              currency: price.currency,
+            }
+          : {}),
+      };
+    } catch {
+      // Keep listing metadata if the detail page cannot be fetched.
+      return event;
+    }
+  });
 }
 
 export const eventbriteCrawler = {
@@ -205,6 +421,6 @@ export const eventbriteCrawler = {
       }
     }
 
-    return [...byUrl.values()];
+    return enrichFromDetailPages([...byUrl.values()]);
   },
 };

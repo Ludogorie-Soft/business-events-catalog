@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
+import { canonicalTitle } from "@/crawlers/event-similarity";
 import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/slugify";
 
@@ -61,6 +62,7 @@ export async function createEvent(formData: FormData) {
   const priceMax = formData.get("priceMax") ? Number(formData.get("priceMax")) : null;
   const publish = formData.get("publish") === "true";
   const tagIds = formData.getAll("tagIds") as string[];
+  const topicIds = formData.getAll("topicIds") as string[];
 
   const slug = await generateUniqueSlug(title);
 
@@ -96,9 +98,16 @@ export async function createEvent(formData: FormData) {
     });
   }
 
+  if (topicIds.length > 0) {
+    await prisma.eventTopic.createMany({
+      data: topicIds.map((topicId) => ({ eventId: event.id, topicId })),
+    });
+  }
+
   revalidatePath("/admin/events");
   revalidatePath("/events");
   revalidatePath("/archive");
+  revalidatePath("/sources");
   redirect("/admin/events");
 }
 
@@ -127,6 +136,7 @@ export async function updateEvent(id: string, formData: FormData) {
   const priceMin = formData.get("priceMin") ? Number(formData.get("priceMin")) : null;
   const priceMax = formData.get("priceMax") ? Number(formData.get("priceMax")) : null;
   const tagIds = formData.getAll("tagIds") as string[];
+  const topicIds = formData.getAll("topicIds") as string[];
 
   const existing = await prisma.event.findUnique({ where: { id } });
   if (!existing) throw new Error("Event not found");
@@ -168,11 +178,19 @@ export async function updateEvent(id: string, formData: FormData) {
         data: tagIds.map((tagId) => ({ eventId: id, tagId })),
       });
     }
+
+    await tx.eventTopic.deleteMany({ where: { eventId: id } });
+    if (topicIds.length > 0) {
+      await tx.eventTopic.createMany({
+        data: topicIds.map((topicId) => ({ eventId: id, topicId })),
+      });
+    }
   });
 
   revalidatePath("/admin/events");
   revalidatePath("/events");
   revalidatePath("/archive");
+  revalidatePath("/sources");
   revalidatePath(`/events/${slug}`);
   redirect("/admin/events");
 }
@@ -184,8 +202,10 @@ export async function publishEvent(id: string) {
     data: { status: "PUBLISHED" },
   });
   revalidatePath("/admin/events");
+  revalidatePath("/admin/moderation");
   revalidatePath("/events");
   revalidatePath("/archive");
+  revalidatePath("/sources");
   revalidatePath(`/events/${event.slug}`);
 }
 
@@ -196,7 +216,111 @@ export async function cancelEvent(id: string) {
     data: { status: "CANCELLED" },
   });
   revalidatePath("/admin/events");
+  revalidatePath("/admin/moderation");
   revalidatePath("/events");
   revalidatePath("/archive");
+  revalidatePath("/sources");
   revalidatePath(`/events/${event.slug}`);
+}
+
+function revalidateEventPaths(slug: string) {
+  revalidatePath("/admin/events");
+  revalidatePath("/admin/moderation");
+  revalidatePath("/events");
+  revalidatePath("/archive");
+  revalidatePath("/sources");
+  revalidatePath(`/events/${slug}`);
+}
+
+export async function hideEvent(id: string) {
+  await requireAdmin();
+  const event = await prisma.event.update({
+    where: { id },
+    data: { status: "HIDDEN" },
+  });
+  revalidateEventPaths(event.slug);
+}
+
+export async function unhideEvent(id: string) {
+  await requireAdmin();
+  const event = await prisma.event.update({
+    where: { id },
+    data: { status: "PUBLISHED" },
+  });
+  revalidateEventPaths(event.slug);
+}
+
+export async function blacklistEvent(id: string) {
+  const session = await requireAdmin();
+  const existing = await prisma.event.findUnique({ where: { id } });
+  if (!existing) throw new Error("Event not found");
+
+  const normalizedTitle = canonicalTitle(existing.title);
+  if (!normalizedTitle) throw new Error("Cannot blacklist event with empty title");
+
+  // Session JWT can hold a stale user id after reseed; resolve against DB.
+  const createdBy =
+    (session.user.id
+      ? await prisma.user.findUnique({
+          where: { id: session.user.id },
+          select: { id: true },
+        })
+      : null) ??
+    (session.user.email
+      ? await prisma.user.findUnique({
+          where: { email: session.user.email },
+          select: { id: true },
+        })
+      : null);
+
+  await prisma.$transaction(async (tx) => {
+    await tx.event.update({
+      where: { id },
+      data: { status: "BLACKLISTED" },
+    });
+
+    await tx.eventTitleBlacklist.upsert({
+      where: { normalizedTitle },
+      create: {
+        normalizedTitle,
+        originalTitle: existing.title,
+        eventId: existing.id,
+        createdById: createdBy?.id ?? null,
+      },
+      update: {
+        originalTitle: existing.title,
+        eventId: existing.id,
+        createdById: createdBy?.id ?? null,
+      },
+    });
+  });
+
+  revalidateEventPaths(existing.slug);
+}
+
+export async function unblacklistEvent(id: string) {
+  await requireAdmin();
+  const existing = await prisma.event.findUnique({ where: { id } });
+  if (!existing) throw new Error("Event not found");
+
+  const normalizedTitle = canonicalTitle(existing.title);
+
+  await prisma.$transaction(async (tx) => {
+    await tx.event.update({
+      where: { id },
+      data: { status: "PUBLISHED" },
+    });
+
+    if (normalizedTitle) {
+      await tx.eventTitleBlacklist.deleteMany({
+        where: {
+          OR: [{ eventId: id }, { normalizedTitle }],
+        },
+      });
+    } else {
+      await tx.eventTitleBlacklist.deleteMany({ where: { eventId: id } });
+    }
+  });
+
+  revalidateEventPaths(existing.slug);
 }

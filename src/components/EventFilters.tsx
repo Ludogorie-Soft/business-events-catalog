@@ -2,18 +2,43 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useState } from "react";
-import type { City, EventType, Topic, Tag } from "@/generated/prisma/client";
+import type {
+  City,
+  EventType,
+  Language,
+  LocationType,
+  PriceType,
+  Topic,
+  Tag,
+} from "@/generated/prisma/client";
+
+type OptionWithCount<T> = T & { count: number };
 
 type Props = {
-  cities: City[];
-  eventTypes: EventType[];
-  topics: Topic[];
-  tags: Tag[];
+  cities: OptionWithCount<City>[];
+  eventTypes: OptionWithCount<EventType>[];
+  topics: OptionWithCount<Topic>[];
+  tags: OptionWithCount<Tag>[];
+  priceCounts: Partial<Record<PriceType, number>>;
+  locationCounts: Partial<Record<LocationType, number>>;
+  languageCounts: Partial<Record<Language, number>>;
 };
 
 const extendedFilterKeys = ["type", "tag", "location", "language", "from", "to"];
 
-export default function EventFilters({ cities, eventTypes, topics, tags }: Props) {
+function withCount(label: string, count: number | undefined) {
+  return `${label} (${count ?? 0})`;
+}
+
+export default function EventFilters({
+  cities,
+  eventTypes,
+  topics,
+  tags,
+  priceCounts,
+  locationCounts,
+  languageCounts,
+}: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -40,14 +65,10 @@ export default function EventFilters({ cities, eventTypes, topics, tags }: Props
     label,
     paramKey,
     options,
-    labelKey = "nameBg",
-    valueKey = "slug",
   }: {
     label: string;
     paramKey: string;
-    options: Record<string, string>[];
-    labelKey?: string;
-    valueKey?: string;
+    options: { slug: string; nameBg: string; count: number }[];
   }) {
     return (
       <div>
@@ -61,8 +82,8 @@ export default function EventFilters({ cities, eventTypes, topics, tags }: Props
         >
           <option value="">Всички</option>
           {options.map((o) => (
-            <option key={o[valueKey]} value={o[valueKey]}>
-              {o[labelKey]}
+            <option key={o.slug} value={o.slug}>
+              {withCount(o.nameBg, o.count)}
             </option>
           ))}
         </select>
@@ -89,16 +110,8 @@ export default function EventFilters({ cities, eventTypes, topics, tags }: Props
       </div>
 
       {/* Always visible */}
-      <SelectFilter
-        label="Град"
-        paramKey="city"
-        options={cities as unknown as Record<string, string>[]}
-      />
-      <SelectFilter
-        label="Тема"
-        paramKey="topic"
-        options={topics as unknown as Record<string, string>[]}
-      />
+      <SelectFilter label="Град" paramKey="city" options={cities} />
+      <SelectFilter label="Тема" paramKey="topic" options={topics} />
 
       <div>
         <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">
@@ -110,8 +123,8 @@ export default function EventFilters({ cities, eventTypes, topics, tags }: Props
           className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
         >
           <option value="">Всички</option>
-          <option value="FREE">Безплатно</option>
-          <option value="PAID">Платено</option>
+          <option value="FREE">{withCount("Безплатно", priceCounts.FREE)}</option>
+          <option value="PAID">{withCount("Платено", priceCounts.PAID)}</option>
         </select>
       </div>
 
@@ -121,13 +134,9 @@ export default function EventFilters({ cities, eventTypes, topics, tags }: Props
           <SelectFilter
             label="Вид събитие"
             paramKey="type"
-            options={eventTypes as unknown as Record<string, string>[]}
+            options={eventTypes}
           />
-          <SelectFilter
-            label="Таг"
-            paramKey="tag"
-            options={tags as unknown as Record<string, string>[]}
-          />
+          <SelectFilter label="Таг" paramKey="tag" options={tags} />
 
           <div>
             <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">
@@ -139,9 +148,15 @@ export default function EventFilters({ cities, eventTypes, topics, tags }: Props
               className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
             >
               <option value="">Всички</option>
-              <option value="PHYSICAL">На живо</option>
-              <option value="ONLINE">Онлайн</option>
-              <option value="HYBRID">Хибридно</option>
+              <option value="PHYSICAL">
+                {withCount("На живо", locationCounts.PHYSICAL)}
+              </option>
+              <option value="ONLINE">
+                {withCount("Онлайн", locationCounts.ONLINE)}
+              </option>
+              <option value="HYBRID">
+                {withCount("Хибридно", locationCounts.HYBRID)}
+              </option>
             </select>
           </div>
 
@@ -155,9 +170,9 @@ export default function EventFilters({ cities, eventTypes, topics, tags }: Props
               className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
             >
               <option value="">Всички</option>
-              <option value="BG">Български</option>
-              <option value="EN">Английски</option>
-              <option value="MIXED">Смесен</option>
+              <option value="BG">{withCount("Български", languageCounts.BG)}</option>
+              <option value="EN">{withCount("Английски", languageCounts.EN)}</option>
+              <option value="MIXED">{withCount("Смесен", languageCounts.MIXED)}</option>
             </select>
           </div>
 

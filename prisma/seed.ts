@@ -168,6 +168,20 @@ async function main() {
         active: true,
       },
     }),
+    prisma.source.upsert({
+      where: { sourceKey: "gosofia" },
+      update: {
+        name: "Go Sofia",
+        websiteUrl: "https://www.go-sofia.com/Events?category=Business",
+        active: true,
+      },
+      create: {
+        name: "Go Sofia",
+        sourceKey: "gosofia",
+        websiteUrl: "https://www.go-sofia.com/Events?category=Business",
+        active: true,
+      },
+    }),
   ]);
   console.log(`Seeded ${sources.length} crawl sources`);
 

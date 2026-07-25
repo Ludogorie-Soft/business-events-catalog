@@ -150,12 +150,122 @@ export async function getEventBySlug(slug: string) {
   });
 }
 
-export async function getFilterOptions() {
-  const [cities, eventTypes, topics, tags] = await Promise.all([
+export async function getFilterOptions(
+  filters: Pick<EventFilters, "dateFrom" | "dateTo" | "timeframe"> = {}
+) {
+  const now = new Date();
+  const timeframe = resolveTimeframe(filters, now);
+  const baseWhere = {
+    status: "PUBLISHED" as const,
+    ...timeframeWhere(timeframe, now),
+    ...(filters.dateFrom || filters.dateTo
+      ? {
+          startAt: {
+            ...(filters.dateFrom ? { gte: new Date(filters.dateFrom) } : {}),
+            ...(filters.dateTo ? { lte: new Date(filters.dateTo) } : {}),
+          },
+        }
+      : {}),
+  };
+
+  const [
+    cities,
+    eventTypes,
+    topics,
+    tags,
+    cityCounts,
+    eventTypeCounts,
+    topicCounts,
+    tagCounts,
+    priceCounts,
+    locationCounts,
+    languageCounts,
+  ] = await Promise.all([
     prisma.city.findMany({ orderBy: { nameBg: "asc" } }),
     prisma.eventType.findMany({ orderBy: { nameBg: "asc" } }),
     prisma.topic.findMany({ orderBy: { nameBg: "asc" } }),
     prisma.tag.findMany({ orderBy: { nameBg: "asc" } }),
+    prisma.event.groupBy({
+      by: ["cityId"],
+      where: baseWhere,
+      _count: { _all: true },
+    }),
+    prisma.event.groupBy({
+      by: ["eventTypeId"],
+      where: baseWhere,
+      _count: { _all: true },
+    }),
+    prisma.eventTopic.groupBy({
+      by: ["topicId"],
+      where: { event: baseWhere },
+      _count: { _all: true },
+    }),
+    prisma.eventTag.groupBy({
+      by: ["tagId"],
+      where: { event: baseWhere },
+      _count: { _all: true },
+    }),
+    prisma.event.groupBy({
+      by: ["priceType"],
+      where: baseWhere,
+      _count: { _all: true },
+    }),
+    prisma.event.groupBy({
+      by: ["locationType"],
+      where: baseWhere,
+      _count: { _all: true },
+    }),
+    prisma.event.groupBy({
+      by: ["language"],
+      where: { ...baseWhere, language: { not: null } },
+      _count: { _all: true },
+    }),
   ]);
-  return { cities, eventTypes, topics, tags };
+
+  const toCountMap = <K extends string>(
+    rows: Array<Record<K, string | null> & { _count: { _all: number } }>,
+    key: K
+  ) => {
+    const map: Partial<Record<string, number>> = {};
+    for (const row of rows) {
+      const id = row[key];
+      if (id) map[id] = row._count._all;
+    }
+    return map;
+  };
+
+  const cityCountById = toCountMap(cityCounts, "cityId");
+  const eventTypeCountById = toCountMap(eventTypeCounts, "eventTypeId");
+  const topicCountById = toCountMap(topicCounts, "topicId");
+  const tagCountById = toCountMap(tagCounts, "tagId");
+
+  return {
+    cities: cities.map((city) => ({
+      ...city,
+      count: cityCountById[city.id] ?? 0,
+    })),
+    eventTypes: eventTypes.map((eventType) => ({
+      ...eventType,
+      count: eventTypeCountById[eventType.id] ?? 0,
+    })),
+    topics: topics.map((topic) => ({
+      ...topic,
+      count: topicCountById[topic.id] ?? 0,
+    })),
+    tags: tags.map((tag) => ({
+      ...tag,
+      count: tagCountById[tag.id] ?? 0,
+    })),
+    priceCounts: Object.fromEntries(
+      priceCounts.map((row) => [row.priceType, row._count._all])
+    ) as Partial<Record<PriceType, number>>,
+    locationCounts: Object.fromEntries(
+      locationCounts.map((row) => [row.locationType, row._count._all])
+    ) as Partial<Record<LocationType, number>>,
+    languageCounts: Object.fromEntries(
+      languageCounts
+        .filter((row) => row.language != null)
+        .map((row) => [row.language!, row._count._all])
+    ) as Partial<Record<Language, number>>,
+  };
 }

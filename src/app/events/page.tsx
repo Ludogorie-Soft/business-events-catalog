@@ -30,9 +30,12 @@ export default async function EventsPage({
   searchParams: SearchParams;
 }) {
   const sp = await searchParams;
-  const [session, { cities, eventTypes, topics, tags }, events] = await Promise.all([
+  const [session, filterOptions, events] = await Promise.all([
     auth(),
-    getFilterOptions(),
+    getFilterOptions({
+      dateFrom: sp.from,
+      dateTo: sp.to,
+    }),
     getEvents({
       citySlug: sp.city,
       eventTypeSlug: sp.type,
@@ -46,6 +49,8 @@ export default async function EventsPage({
     }),
   ]);
 
+  const { cities, eventTypes, topics, tags, priceCounts, locationCounts, languageCounts } =
+    filterOptions;
   const userId = session?.user?.id;
   const attendanceRecords = userId
     ? await prisma.eventAttendance.findMany({
@@ -73,6 +78,9 @@ export default async function EventsPage({
               eventTypes={eventTypes}
               topics={topics}
               tags={tags}
+              priceCounts={priceCounts}
+              locationCounts={locationCounts}
+              languageCounts={languageCounts}
             />
           </Suspense>
         </div>

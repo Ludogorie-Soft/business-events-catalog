@@ -2,6 +2,7 @@ import "dotenv/config";
 import { filterUpcomingEvents } from "../src/crawlers/filter-events";
 import { enoCrawler } from "../src/crawlers/sources/entrepreneursnightout";
 import { eventbriteCrawler } from "../src/crawlers/sources/eventbrite";
+import { goSofiaCrawler } from "../src/crawlers/sources/gosofia";
 import { iecCrawler } from "../src/crawlers/sources/iec";
 import { sofiaTechCrawler } from "../src/crawlers/sources/sofiatech";
 import { startupCouncilCrawler } from "../src/crawlers/sources/startupcouncil";
@@ -26,6 +27,10 @@ async function main() {
   const startupCouncil = filterUpcomingEvents(await startupCouncilCrawler.crawl());
   console.log("Startup Council events:", startupCouncil.length);
   console.log(startupCouncil.slice(0, 2));
+
+  const goSofia = filterUpcomingEvents(await goSofiaCrawler.crawl());
+  console.log("Go Sofia upcoming events:", goSofia.length);
+  console.log(goSofia.slice(0, 3));
 }
 
 main().catch(console.error);
