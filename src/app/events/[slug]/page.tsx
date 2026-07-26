@@ -5,6 +5,7 @@ import { getEventBySlug } from "@/lib/events";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import AttendanceButtons from "@/components/AttendanceButtons";
+import SafeCoverImage from "@/components/SafeCoverImage";
 import { formatEventPriceLabel } from "@/lib/format-price";
 
 type Props = { params: Promise<{ slug: string }> };
@@ -72,7 +73,7 @@ export default async function EventDetailPage({ params }: Props) {
       </Link>
 
       {event.coverImageUrl && (
-        <img
+        <SafeCoverImage
           src={event.coverImageUrl}
           alt={event.title}
           className="mb-6 h-64 w-full rounded-2xl object-cover"

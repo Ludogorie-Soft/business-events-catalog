@@ -9,6 +9,7 @@ import type {
   Tag,
 } from "@/generated/prisma/client";
 import { formatEventPriceLabel } from "@/lib/format-price";
+import SafeCoverImage from "@/components/SafeCoverImage";
 
 type Props = {
   event: Event & {
@@ -75,7 +76,7 @@ export default function EventCard({ event, attendanceStatus }: Props) {
         )}
 
         {event.coverImageUrl && (
-          <img
+          <SafeCoverImage
             src={event.coverImageUrl}
             alt={event.title}
             className="mb-4 h-40 w-full rounded-lg object-cover"
