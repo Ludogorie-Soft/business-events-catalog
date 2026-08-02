@@ -167,6 +167,7 @@ export async function sendDigestForSubscription(
       subscriptionName: subscription.name,
       events,
       digestType,
+      unsubscribeToken: subscription.unsubscribeToken,
     }),
   });
 

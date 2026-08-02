@@ -5,6 +5,7 @@ import EventFilters from "@/components/EventFilters";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { getEvents, getFilterOptions, sortEventsByUserAttendance } from "@/lib/events";
+import { isWeekPreset } from "@/lib/week-range";
 import type { AttendanceStatus, LocationType, PriceType, Language } from "@/generated/prisma/client";
 
 export const metadata: Metadata = {
@@ -22,6 +23,7 @@ type SearchParams = Promise<{
   language?: string;
   from?: string;
   to?: string;
+  week?: string;
 }>;
 
 export default async function EventsPage({
@@ -30,11 +32,13 @@ export default async function EventsPage({
   searchParams: SearchParams;
 }) {
   const sp = await searchParams;
+  const week = isWeekPreset(sp.week) ? sp.week : undefined;
   const [session, filterOptions, events] = await Promise.all([
     auth(),
     getFilterOptions({
       dateFrom: sp.from,
       dateTo: sp.to,
+      week,
     }),
     getEvents({
       citySlug: sp.city,
@@ -46,6 +50,7 @@ export default async function EventsPage({
       language: sp.language as Language | undefined,
       dateFrom: sp.from,
       dateTo: sp.to,
+      week,
     }),
   ]);
 

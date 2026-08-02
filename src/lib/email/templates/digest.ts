@@ -74,10 +74,12 @@ export function buildDigestEmailHtml({
   subscriptionName,
   events,
   digestType,
+  unsubscribeToken,
 }: {
   subscriptionName: string;
   events: DigestEvent[];
   digestType: "daily" | "weekly";
+  unsubscribeToken: string;
 }) {
   const appUrl = getAppUrl();
   const title =
@@ -88,6 +90,7 @@ export function buildDigestEmailHtml({
     digestType === "daily"
       ? "Ето новите събития, които отговарят на вашия абонамент:"
       : "Ето събитията за тази седмица, които отговарят на вашия абонамент:";
+  const unsubscribeUrl = `${appUrl}/unsubscribe?token=${encodeURIComponent(unsubscribeToken)}`;
 
   const body = `
     <h1 style="margin:0 0 8px;font-size:24px;line-height:1.3;color:#111827;">
@@ -102,7 +105,7 @@ export function buildDigestEmailHtml({
     <p style="margin:24px 0 0;font-size:14px;line-height:1.6;color:#6b7280;">
       <a href="${appUrl}/events" style="color:#2563eb;text-decoration:none;">Виж всички събития</a>
       ·
-      <a href="${appUrl}/profile/subscriptions" style="color:#2563eb;text-decoration:none;">Управление на абонаменти</a>
+      <a href="${unsubscribeUrl}" style="color:#6b7280;text-decoration:underline;">Отпиши се</a>
     </p>
   `;
 

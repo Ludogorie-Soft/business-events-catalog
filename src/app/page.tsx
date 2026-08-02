@@ -11,21 +11,21 @@ export default function Home() {
         в цялата страна.
       </p>
       <p className="mt-4 max-w-xl text-base text-gray-600">
-        Регистрирай се безплатно, за да получаваш персонализиран имейл със
-        събития подходящи за теб!
+        Абонирайте се безплатно за седмичен имейл със събития по град — без
+        регистрация.
       </p>
       <div className="mt-10 flex flex-wrap justify-center gap-4">
         <Link
-          href="/events"
+          href="/subscribe"
           className="rounded-md bg-blue-600 px-6 py-3 text-sm font-semibold text-white shadow hover:bg-blue-500 transition-colors"
         >
-          Разгледай всички събития
+          Абонирай се за имейл
         </Link>
         <Link
-          href="/auth/register"
+          href="/events"
           className="rounded-md border border-gray-300 px-6 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
         >
-          Регистрация
+          Разгледай всички събития
         </Link>
       </div>
 

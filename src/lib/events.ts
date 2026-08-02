@@ -6,6 +6,12 @@ import type {
   PriceType,
   Language,
 } from "@/generated/prisma/client";
+import {
+  addCalendarDays,
+  isWeekPreset,
+  resolveWeekRange,
+  type WeekPreset,
+} from "@/lib/week-range";
 
 const ATTENDANCE_SORT_ORDER: Partial<Record<AttendanceStatus, number>> = {
   ATTENDING: 0,
@@ -36,10 +42,35 @@ export type EventFilters = {
   language?: Language;
   dateFrom?: string;
   dateTo?: string;
+  /** Relative Mon–Sun range; takes precedence over dateFrom/dateTo when set. */
+  week?: WeekPreset;
   status?: EventStatus;
   /** Defaults to "upcoming". Multi-day events stay visible until endAt. */
   timeframe?: EventTimeframe;
 };
+
+/** Expand week preset (or pass through absolute dates) into YYYY-MM-DD bounds. */
+export function resolveEventDateRange(
+  filters: Pick<EventFilters, "week" | "dateFrom" | "dateTo">,
+  now = new Date()
+): { dateFrom?: string; dateTo?: string } {
+  if (isWeekPreset(filters.week)) {
+    return resolveWeekRange(filters.week, now);
+  }
+  return { dateFrom: filters.dateFrom, dateTo: filters.dateTo };
+}
+
+/**
+ * Inclusive YYYY-MM-DD → Prisma startAt bounds.
+ * End date uses exclusive next-day so the full `to` calendar day is included.
+ */
+function startAtDateWhere(dateFrom?: string, dateTo?: string) {
+  if (!dateFrom && !dateTo) return undefined;
+  return {
+    ...(dateFrom ? { gte: new Date(dateFrom) } : {}),
+    ...(dateTo ? { lt: new Date(addCalendarDays(dateTo, 1)) } : {}),
+  };
+}
 
 function localTodayIsoDate(now = new Date()) {
   const y = now.getFullYear();
@@ -87,7 +118,8 @@ function timeframeWhere(timeframe: EventTimeframe, now: Date) {
 
 export async function getEvents(filters: EventFilters = {}) {
   const now = new Date();
-  const timeframe = resolveTimeframe(filters, now);
+  const { dateFrom, dateTo } = resolveEventDateRange(filters, now);
+  const timeframe = resolveTimeframe({ ...filters, dateFrom, dateTo }, now);
   const where: Record<string, unknown> = {
     status: filters.status ?? "PUBLISHED",
     ...timeframeWhere(timeframe, now),
@@ -114,11 +146,9 @@ export async function getEvents(filters: EventFilters = {}) {
   if (filters.language) {
     where.language = filters.language;
   }
-  if (filters.dateFrom || filters.dateTo) {
-    where.startAt = {
-      ...(filters.dateFrom ? { gte: new Date(filters.dateFrom) } : {}),
-      ...(filters.dateTo ? { lte: new Date(filters.dateTo) } : {}),
-    };
+  const startAt = startAtDateWhere(dateFrom, dateTo);
+  if (startAt) {
+    where.startAt = startAt;
   }
 
   return prisma.event.findMany({
@@ -151,21 +181,16 @@ export async function getEventBySlug(slug: string) {
 }
 
 export async function getFilterOptions(
-  filters: Pick<EventFilters, "dateFrom" | "dateTo" | "timeframe"> = {}
+  filters: Pick<EventFilters, "dateFrom" | "dateTo" | "week" | "timeframe"> = {}
 ) {
   const now = new Date();
-  const timeframe = resolveTimeframe(filters, now);
+  const { dateFrom, dateTo } = resolveEventDateRange(filters, now);
+  const timeframe = resolveTimeframe({ ...filters, dateFrom, dateTo }, now);
+  const startAt = startAtDateWhere(dateFrom, dateTo);
   const baseWhere = {
     status: "PUBLISHED" as const,
     ...timeframeWhere(timeframe, now),
-    ...(filters.dateFrom || filters.dateTo
-      ? {
-          startAt: {
-            ...(filters.dateFrom ? { gte: new Date(filters.dateFrom) } : {}),
-            ...(filters.dateTo ? { lte: new Date(filters.dateTo) } : {}),
-          },
-        }
-      : {}),
+    ...(startAt ? { startAt } : {}),
   };
 
   const [

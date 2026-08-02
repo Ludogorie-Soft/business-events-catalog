@@ -10,6 +10,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     { href: "/admin", label: "🏠 Табло" },
     { href: "/admin/events", label: "📋 Събития" },
     { href: "/admin/moderation", label: "🛡️ Модерация" },
+    { href: "/admin/subscribers", label: "✉️ Абонати" },
     { href: "/admin/sources", label: "🔗 Източници" },
     { href: "/admin/source-suggestions", label: "💡 Предложения" },
   ];

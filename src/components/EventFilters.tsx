@@ -11,6 +11,7 @@ import type {
   Topic,
   Tag,
 } from "@/generated/prisma/client";
+import { isWeekPreset, resolveWeekRange } from "@/lib/week-range";
 
 type OptionWithCount<T> = T & { count: number };
 
@@ -28,6 +29,11 @@ const extendedFilterKeys = ["type", "tag", "location", "language", "from", "to"]
 
 function withCount(label: string, count: number | undefined) {
   return `${label} (${count ?? 0})`;
+}
+
+function formatBgDate(iso: string) {
+  const [y, m, d] = iso.split("-");
+  return `${d}.${m}.${y}`;
 }
 
 export default function EventFilters({
@@ -54,12 +60,23 @@ export default function EventFilters({
       } else {
         params.delete(key);
       }
+
+      // week and absolute dates are mutually exclusive
+      if (key === "week") {
+        params.delete("from");
+        params.delete("to");
+      } else if (key === "from" || key === "to") {
+        params.delete("week");
+      }
+
       router.push(`/events?${params.toString()}`);
     },
     [router, searchParams]
   );
 
   const val = (key: string) => searchParams.get(key) ?? "";
+  const week = val("week");
+  const weekRange = isWeekPreset(week) ? resolveWeekRange(week) : null;
 
   function SelectFilter({
     label,
@@ -128,6 +145,26 @@ export default function EventFilters({
         </select>
       </div>
 
+      <div>
+        <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+          Седмица
+        </label>
+        <select
+          value={week}
+          onChange={(e) => setFilter("week", e.target.value)}
+          className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+        >
+          <option value="">Всички</option>
+          <option value="current">Тази седмица</option>
+          <option value="next">Следваща седмица</option>
+        </select>
+        {weekRange && (
+          <p className="mt-1 text-xs text-gray-500">
+            {formatBgDate(weekRange.dateFrom)} – {formatBgDate(weekRange.dateTo)}
+          </p>
+        )}
+      </div>
+
       {/* Extended filters */}
       {showMore && (
         <div className="space-y-5 border-t border-gray-100 pt-4">
@@ -182,7 +219,7 @@ export default function EventFilters({
             </label>
             <input
               type="date"
-              value={val("from")}
+              value={weekRange ? weekRange.dateFrom : val("from")}
               onChange={(e) => setFilter("from", e.target.value)}
               className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
             />
@@ -194,7 +231,7 @@ export default function EventFilters({
             </label>
             <input
               type="date"
-              value={val("to")}
+              value={weekRange ? weekRange.dateTo : val("to")}
               onChange={(e) => setFilter("to", e.target.value)}
               className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
             />

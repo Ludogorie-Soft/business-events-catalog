@@ -327,6 +327,11 @@ model Subscription {
   locationType LocationType?
   language     Language?
   maxPrice     Decimal?              @db.Decimal(10, 2)
+  /** Public one-click unsubscribe link token (always set). */
+  unsubscribeToken String @unique @default(cuid())
+  /** Set while waiting for anonymous double opt-in confirmation. */
+  confirmToken           String?   @unique
+  confirmTokenExpiresAt  DateTime?
 
   user       User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
   cities        SubscriptionCity[]

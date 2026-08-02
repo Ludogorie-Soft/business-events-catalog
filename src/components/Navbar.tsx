@@ -19,6 +19,12 @@ export default async function Navbar() {
           <Link href="/online" className="text-gray-600 hover:text-gray-900">
             Онлайн
           </Link>
+          <Link
+            href="/subscribe"
+            className="rounded-md bg-blue-600 px-3 py-1.5 text-white hover:bg-blue-500 transition-colors"
+          >
+            Абонирай се
+          </Link>
 
           {user?.role === "ADMIN" && (
             <Link href="/admin" className="text-gray-600 hover:text-gray-900">
@@ -51,22 +57,7 @@ export default async function Navbar() {
                 </button>
               </form>
             </>
-          ) : (
-            <>
-              <Link
-                href="/auth/login"
-                className="text-gray-600 hover:text-gray-900"
-              >
-                Вход
-              </Link>
-              <Link
-                href="/auth/register"
-                className="rounded-md bg-blue-600 px-3 py-1.5 text-white hover:bg-blue-500 transition-colors"
-              >
-                Регистрация
-              </Link>
-            </>
-          )}
+          ) : null}
         </nav>
       </div>
     </header>
