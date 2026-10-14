@@ -3,8 +3,11 @@ import { filterUpcomingEvents } from "../src/crawlers/filter-events";
 import { enoCrawler } from "../src/crawlers/sources/entrepreneursnightout";
 import { eventbriteCrawler } from "../src/crawlers/sources/eventbrite";
 import { goSofiaCrawler } from "../src/crawlers/sources/gosofia";
+import { hillsOfBusinessCrawler } from "../src/crawlers/sources/hillsofbusiness";
 import { iecCrawler } from "../src/crawlers/sources/iec";
+import { meetupCrawler } from "../src/crawlers/sources/meetup";
 import { sofiaTechCrawler } from "../src/crawlers/sources/sofiatech";
+import { sofiaUpCrawler } from "../src/crawlers/sources/sofiaup";
 import { startupCouncilCrawler } from "../src/crawlers/sources/startupcouncil";
 
 async function main() {
@@ -31,6 +34,18 @@ async function main() {
   const goSofia = filterUpcomingEvents(await goSofiaCrawler.crawl());
   console.log("Go Sofia upcoming events:", goSofia.length);
   console.log(goSofia.slice(0, 3));
+
+  const sofiaUp = filterUpcomingEvents(await sofiaUpCrawler.crawl());
+  console.log("Sofia Up upcoming events:", sofiaUp.length);
+  console.log(sofiaUp);
+
+  const meetup = filterUpcomingEvents(await meetupCrawler.crawl());
+  console.log("Meetup upcoming events:", meetup.length);
+  console.log(meetup.slice(0, 3));
+
+  const hillsOfBusiness = filterUpcomingEvents(await hillsOfBusinessCrawler.crawl());
+  console.log("Hills of Business upcoming events:", hillsOfBusiness.length);
+  console.log(hillsOfBusiness);
 }
 
 main().catch(console.error);

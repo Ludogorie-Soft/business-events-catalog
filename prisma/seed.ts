@@ -31,6 +31,11 @@ async function main() {
       create: { slug: "pleven", nameBg: "Плевен", nameEn: "Pleven", region: "Pleven" },
     }),
     prisma.city.upsert({
+      where: { slug: "plovdiv" },
+      update: {},
+      create: { slug: "plovdiv", nameBg: "Пловдив", nameEn: "Plovdiv", region: "Plovdiv" },
+    }),
+    prisma.city.upsert({
       where: { slug: "online" },
       update: {},
       create: { slug: "online", nameBg: "Онлайн", nameEn: "Online", region: "Online" },
@@ -179,6 +184,48 @@ async function main() {
         name: "Go Sofia",
         sourceKey: "gosofia",
         websiteUrl: "https://www.go-sofia.com/Events?category=Business",
+        active: true,
+      },
+    }),
+    prisma.source.upsert({
+      where: { sourceKey: "sofiaup" },
+      update: {
+        name: "Sofia Up",
+        websiteUrl: "https://www.sofia.bg/en/sofia-up",
+        active: true,
+      },
+      create: {
+        name: "Sofia Up",
+        sourceKey: "sofiaup",
+        websiteUrl: "https://www.sofia.bg/en/sofia-up",
+        active: true,
+      },
+    }),
+    prisma.source.upsert({
+      where: { sourceKey: "meetup" },
+      update: {
+        name: "Meetup Sofia",
+        websiteUrl: "https://www.meetup.com/find/bg--sofia",
+        active: true,
+      },
+      create: {
+        name: "Meetup Sofia",
+        sourceKey: "meetup",
+        websiteUrl: "https://www.meetup.com/find/bg--sofia",
+        active: true,
+      },
+    }),
+    prisma.source.upsert({
+      where: { sourceKey: "hillsofbusiness" },
+      update: {
+        name: "Hills of Business",
+        websiteUrl: "https://hillsofbusiness.com/events/",
+        active: true,
+      },
+      create: {
+        name: "Hills of Business",
+        sourceKey: "hillsofbusiness",
+        websiteUrl: "https://hillsofbusiness.com/events/",
         active: true,
       },
     }),

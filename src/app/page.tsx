@@ -37,6 +37,7 @@ export default function Home() {
         <div className="flex flex-wrap justify-center gap-3">
           {[
             { href: "/events?city=sofia", label: "София" },
+            { href: "/events?city=plovdiv", label: "Пловдив" },
             { href: "/events?city=vratsa", label: "Враца" },
             { href: "/events?city=montana", label: "Монтана" },
             { href: "/events?city=pleven", label: "Плевен" },
